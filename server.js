@@ -1,61 +1,71 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors'); 
+const { Server } = require('socket.io');
+const path = require('path');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-// Setup CORS for Socket.IO
-const io = socketIo(server, {
+
+// Configure CORS
+const corsOptions = {
+  origin: 'http://localhost:3001', // Your frontend URL
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
+};
+app.use(cors(corsOptions)); // Enable CORS with options
+
+const io = new Server(server, {
   cors: {
-    
-    origin: "*", 
+    origin: "http://localhost:3001", // Allow frontend URL for Socket.IO
     methods: ["GET", "POST"],
-    //allowedHeaders: ["my-custom-header"],
     credentials: true
   }
 });
 
-// Express middleware to use CORS - if you have other routes in Express and wish to enable CORS for them
-app.use(cors());
-
-// Example in-memory structure to keep track of drawings temporarily
-const boardDrawings = {};
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
-    console.log('New client connected', socket.id);
+  console.log('A user connected');
 
-    socket.on('joinBoard', ({ boardId }) => {
-        console.log(`Client ${socket.id} joined board ${boardId}`);
-        socket.join(boardId);
-        // Send existing drawings for the board to the newly connected client
-        // Note: This data will be lost if the server restarts
-        const drawings = boardDrawings[boardId] || [];
-        socket.emit('loadDrawings', drawings);
-    });
+  // Listen for joining a specific board (room)
+  socket.on('joinBoard', ({ boardId }) => {
+    socket.join(boardId);
+    console.log(`User joined board ${boardId}`);
+  });
 
-    socket.on('drawing', (data) => {
-        //console.log(`Received drawing from ${socket.id} on board ${data.boardId}`);
-        const { boardId, drawing } = data;
-        // Broadcast drawing action to all users in the same board
-        socket.to(boardId).emit('drawing', drawing);
-        
-        // Add the drawing to the in-memory store
-        if (!boardDrawings[boardId]) {
-            boardDrawings[boardId] = [];
-        }
-        boardDrawings[boardId].push(drawing);
-    });
+  // Listen for drawing events and broadcast to other users in the room
 
-    socket.on('disconnect', () => {
-        console.log(`Client ${socket.id} disconnected`);
-    });
+socket.on('drawing', (data) => {
+  console.log('Drawing event received:', data); // Check if this is being logged
+  const { boardId } = data;
+  socket.to(boardId).emit('drawing', data);
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-    console.log(`Listening on port ${PORT}`);
+  
+  //socket.on('drawing', (data) => {
+    //const { boardId } = data;
+   // socket.to(boardId).emit('drawing', data);  // Emit to users in the same room
+  //});
+  
+  socket.on('drawing', (data) => {
+  console.log('Drawing event received on server:', data);
+  socket.to(data.roomId).emit('drawing', data); // Broadcast to all clients in the same room
 });
 
+  // Listen for clearCanvas events and broadcast to users in the room
+  socket.on('clearCanvas', ({ boardId }) => {
+    socket.to(boardId).emit('clearCanvas', { boardId });
+  });
 
+  socket.on('disconnect', () => {
+    console.log('A user disconnected');
+  });
+});
 
+// Start the server
+server.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
+});

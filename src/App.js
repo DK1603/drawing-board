@@ -9,7 +9,7 @@ import Login from './frontend/components/Login';
 import SignUp from './frontend/components/SignUp';
 import LandingPage from './frontend/components/LandingPage';
 
-const SOCKET_SERVER_URL = 'http://localhost:3002';
+const SOCKET_SERVER_URL = 'http://localhost:3001';
 
 const App = () => {
   const [brushColor, setBrushColor] = useState('#000000');

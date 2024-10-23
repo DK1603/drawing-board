@@ -1,42 +1,39 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';  // Import useNavigate for redirection
+import { useNavigate } from 'react-router-dom';
 import firebaseApp from '../services/firebase-config';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import styles from '../styles/auth_style.module.css';  // Import the CSS module
+import styles from '../styles/auth_style.module.css';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);  // Loading state
   const auth = getAuth(firebaseApp);
-  const navigate = useNavigate();  // Initialize navigate for programmatic navigation
+  const navigate = useNavigate();
 
   const handleLogin = (e) => {
     e.preventDefault();
+    setIsLoading(true);  // Show loading while login is processing
+
     signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
+      .then(async (userCredential) => {
         console.log('User logged in:', userCredential.user);
-        setIsLoggedIn(true);
 
-        // Show a pop-up message
+        // Get Firebase token to store for backend verification
+        const token = await userCredential.user.getIdToken();
+        localStorage.setItem('token', token);  // Store the token in localStorage
+
         window.alert('Login successful! Redirecting to the boards page...');
-
-        // Redirect to the boards page
-        navigate('/boards');
+        navigate('/boards');  // Redirect to boards page
       })
       .catch((error) => {
         console.error('Error logging in:', error);
-        window.alert('Login failed. Please check your credentials.');
+        window.alert('Login failed: ' + error.message);  // Display error to the user
+      })
+      .finally(() => {
+        setIsLoading(false);  // Hide loading indicator after login process
       });
   };
-
-  if (isLoggedIn) { 
-    return (
-      <div className={styles.welcomeContainer}>
-        <h1 className={styles.welcomeMessage}>Welcome to the Shared board!</h1>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.authPage}>
@@ -65,7 +62,9 @@ function Login() {
             />
             <label htmlFor="password">Password</label>
           </div>
-          <button className={styles.button} type="submit">Login</button>
+          <button className={styles.button} type="submit" disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Login'}
+          </button>
         </form>
       </div>
     </div>

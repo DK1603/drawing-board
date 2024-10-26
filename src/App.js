@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'; 
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 
 import io from 'socket.io-client';
 import Canvas from './frontend/components/Canvas';
 import ToolBar from './frontend/components/ToolBar';
-import BoardList from './frontend/components/BoardList';
 import Login from './frontend/components/Login';
 import SignUp from './frontend/components/SignUp';
 import LandingPage from './frontend/components/LandingPage';
+import DashBoard from './frontend/components/DashBoard';
 
 const SOCKET_SERVER_URL = 'http://localhost:3001';
 
@@ -18,8 +18,9 @@ const App = () => {
     { id: '1', name: 'Default Board' },
     { id: '2', name: 'Board 2' },
   ]);
-  const [currentBoardId, setCurrentBoardId] = useState('1');
+  const [currentBoardId, setCurrentBoardId] = useState('1'); // Ensure currentBoardId is initialized
   const [socket, setSocket] = useState(null);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
     const newSocket = io(SOCKET_SERVER_URL);
@@ -27,10 +28,34 @@ const App = () => {
     return () => newSocket.close();
   }, []);
 
-  const onJoinBoard = (boardId) => {
+  const onHostNewBoard = () => {
+    const newBoard = { id: Date.now().toString(), name: `New Board ${boards.length + 1}` };
+    setBoards((prevBoards) => [...prevBoards, newBoard]);
+    setCurrentBoardId(newBoard.id);
+    if (socket) {
+      socket.emit('joinBoard', { boardId: newBoard.id });
+    }
+  };
+
+  const onEditBoard = (boardId) => {
+    console.log(`Modify board ${boardId}`);
+    setCurrentBoardId(boardId);
     if (socket) {
       socket.emit('joinBoard', { boardId });
-      setCurrentBoardId(boardId);
+    }
+  };
+
+  const onDeleteBoard = (boardId) => {
+    setBoards((prevBoards) => prevBoards.filter((board) => board.id !== boardId));
+    if (currentBoardId === boardId) {
+      setCurrentBoardId(boards[0]?.id || null);
+    }
+  };
+
+  const onJoinBoard = (boardId) => {
+    setCurrentBoardId(boardId);
+    if (socket) {
+      socket.emit('joinBoard', { boardId });
     }
   };
 
@@ -49,8 +74,6 @@ const App = () => {
       }
     };
   }, [socket, currentBoardId]);
-
-  const canvasRef = useRef(null);
 
   const handleClearCanvas = () => {
     if (canvasRef.current) {
@@ -71,14 +94,27 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
 
+        {/* Dashboard page */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <DashBoard 
+              boards={boards} 
+              onHostNewBoard={onHostNewBoard} 
+              onEditBoard={onEditBoard} 
+              onJoinBoard={onJoinBoard} 
+              onDeleteBoard={onDeleteBoard}
+            />
+          } 
+        />
+
         {/* Boards page with toolbar, canvas, and board list */}
         <Route 
-          path="/boards" 
+          path="/boards/:boardId" // Allow dynamic boardId in URL
           element={
             <>
               <ToolBar setBrushColor={setBrushColor} setBrushSize={setBrushSize} onClearCanvas={handleClearCanvas} />
               {currentBoardId && <Canvas ref={canvasRef} brushColor={brushColor} brushSize={brushSize} roomId={currentBoardId} />}
-              <BoardList boards={boards} onJoinBoard={onJoinBoard} />
             </>
           } 
         />

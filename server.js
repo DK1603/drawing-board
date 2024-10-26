@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
-const mongoose = require('mongoose'); // MongoDB ORM
 const admin = require('firebase-admin'); // Firebase Admin SDK
 const serviceAccount = require('./src/backend/config/firebase-adminsdk-drawing.json'); // Path to Firebase service account JSON
 
@@ -12,41 +11,21 @@ const server = http.createServer(app);
 // Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://console.firebase.google.com/u/0/project/drawing-board-8fa89/database/drawing-board-8fa89-default-rtdb/data/~2F', // Replace with your Firebase database URL
+  databaseURL: 'https://drawing-board-8fa89.firebaseio.com', // Replace with your Firestore database URL
 });
+
+const db = admin.firestore(); // Initialize Firestore
 
 // Setup CORS for Socket.IO
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000", // Allow requests from frontend running on 3000
+    origin: "http://localhost:3000",
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
 });
 
 app.use(cors());
-
-// Connect to MongoDB Atlas
-mongoose.connect('mongodb+srv://dk1603:drawingboard123@clusterforcapstone.m51cy.mongodb.net/?retryWrites=true&w=majority&appName=ClusterForCapstone', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-// Define Mongoose schema for users and boards
-const userSchema = new mongoose.Schema({
-  uid: { type: String, required: true }, // Firebase UID
-  email: { type: String, required: true },
-  boards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Board' }],
-});
-
-const boardSchema = new mongoose.Schema({
-  boardId: { type: String, required: true },
-  drawings: { type: Array, default: [] },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-});
-
-const User = mongoose.model('User', userSchema);
-const Board = mongoose.model('Board', boardSchema);
 
 // Verify Firebase token middleware
 const verifyFirebaseToken = async (socket, next) => {
@@ -58,15 +37,6 @@ const verifyFirebaseToken = async (socket, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     socket.user = decodedToken; // Attach user info to socket
-    const user = await User.findOne({ uid: decodedToken.uid });
-    if (!user) {
-      // If user doesn't exist in MongoDB, create one
-      const newUser = new User({
-        uid: decodedToken.uid,
-        email: decodedToken.email,
-      });
-      await newUser.save();
-    }
     next();
   } catch (error) {
     console.error('Firebase token verification failed:', error);
@@ -78,58 +48,73 @@ const verifyFirebaseToken = async (socket, next) => {
 io.use(verifyFirebaseToken);
 
 io.on('connection', async (socket) => {
-  const user = socket.user; // User info from verified Firebase token
+  const user = socket.user;
   console.log(`New client connected: ${user.email} (${user.uid})`);
 
+  // Join or create a board
   socket.on('joinBoard', async ({ boardId }) => {
     console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
     socket.join(boardId);
-  
-    // Find a user in MongoDB by their Firebase UID
-    const dbUser = await User.findOne({ uid: user.uid });
-    
-    if (!dbUser) {
-      console.error(`User with UID ${user.uid} not found in MongoDB`);
-      return;
-    }
-  
-    // Find or create a board in MongoDB
-    let board = await Board.findOne({ boardId });
-    if (!board) {
-      board = new Board({
-        boardId,
-        createdBy: dbUser._id, // ObjectId of the user from MongoDB
+
+    // Check if the board exists in Firestore
+    const boardRef = db.collection('boards').doc(boardId);
+    const boardDoc = await boardRef.get();
+
+    if (!boardDoc.exists) {
+      await boardRef.set({
+        boardId: boardId,
+        createdBy: user.uid,
+        drawings: [],
       });
-      await board.save();
     }
-  
+
     // Send existing drawings for the board to the newly connected client
-    const drawings = board.drawings;
+    const drawings = boardDoc.data()?.drawings || [];
     socket.emit('loadDrawings', drawings);
   });
+
+// Refined drawing storage in Firestore with simplified path structure
+socket.on('drawing', async (data) => {
+  const { boardId, drawing } = data;
+  console.log(`Received drawing from ${socket.id} on board ${boardId}`);
+
+  // Broadcast drawing to other clients
+  socket.to(boardId).emit('drawing', drawing);
+
+  // Ensure path only contains Firestore-compatible data
+  const sanitizedPath = {
+    left: drawing.path.left || 0,
+    top: drawing.path.top || 0,
+    height: drawing.path.height || 0,
+    width: drawing.path.width || 0,
+    pathData: drawing.path.path || [],  // Condensed path data to basic array
+  };
+
+  // Final sanitized drawing object
+  const sanitizedDrawing = {
+    path: sanitizedPath,  
+    stroke: drawing.stroke || '',
+    strokeWidth: drawing.strokeWidth || 1,
+    timestamp: Date.now(),  // Adding timestamp
+  };
+
+  // Add the sanitized drawing to the Firestore board document
+  const boardRef = db.collection('boards').doc(boardId);
+  await boardRef.update({
+    drawings: admin.firestore.FieldValue.arrayUnion(sanitizedDrawing),
+  });
+});
+
   
 
-  socket.on('drawing', async (data) => {
-    const { boardId, drawing } = data;
-    console.log(`Received drawing from ${socket.id} on board ${boardId}`);
-
-    // Broadcast drawing action to all users in the same board
-    socket.to(boardId).emit('drawing', drawing);
-
-    // Store the drawing in MongoDB
-    const board = await Board.findOne({ boardId });
-    if (board) {
-      board.drawings.push(drawing);
-      await board.save();
-    }
-  });
-
+  // Clear drawings for a board
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
 
-    // Clear stored drawings in MongoDB
-    await Board.updateOne({ boardId: roomId }, { $set: { drawings: [] } });
+    // Clear drawings in Firestore
+    const boardRef = db.collection('boards').doc(roomId);
+    await boardRef.set({ drawings: [] }, { merge: true }); // Clears `drawings` while keeping other fields
   });
 
   socket.on('disconnect', () => {

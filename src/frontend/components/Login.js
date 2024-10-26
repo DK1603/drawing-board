@@ -23,8 +23,8 @@ function Login() {
         const token = await userCredential.user.getIdToken();
         localStorage.setItem('token', token);  // Store the token in localStorage
 
-        window.alert('Login successful! Redirecting to the boards page...');
-        navigate('/boards');  // Redirect to boards page
+        window.alert('Login successful! Redirecting to the Dashboard...');
+        navigate('/dashboard');  // Redirect to Dashboard page
       })
       .catch((error) => {
         console.error('Error logging in:', error);

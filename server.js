@@ -68,42 +68,65 @@ io.on('connection', async (socket) => {
       });
     }
 
-    // Send existing drawings for the board to the newly connected client
-    const drawings = boardDoc.data()?.drawings || [];
-    socket.emit('loadDrawings', drawings);
+  // Send existing drawings for the board to the newly connected client
+  const drawings = boardDoc.data()?.drawings || [];
+  console.log("Drawings sent to client on load:", drawings); // Verify drawings data format
+  socket.emit('loadDrawings', drawings);
   });
+
 
 // Refined drawing storage in Firestore with simplified path structure
 socket.on('drawing', async (data) => {
+  console.log("Received data on 'drawing' event:", data);
+
+  if (!data || !data.drawing) {
+    console.error("Received drawing event with undefined data or drawing:", data);
+    return;
+  }
+
   const { boardId, drawing } = data;
-  console.log(`Received drawing from ${socket.id} on board ${boardId}`);
 
-  // Broadcast drawing to other clients
-  socket.to(boardId).emit('drawing', drawing);
+  if (!boardId || !drawing) {
+    console.error("Received drawing event with missing boardId or drawing:", data);
+    return;
+  }
 
-  // Ensure path only contains Firestore-compatible data
-  const sanitizedPath = {
-    left: drawing.path.left || 0,
-    top: drawing.path.top || 0,
-    height: drawing.path.height || 0,
-    width: drawing.path.width || 0,
-    pathData: drawing.path.path || [],  // Condensed path data to basic array
-  };
+  console.log(`Received drawing from ${socket.id} on board ${boardId}:`, drawing);
 
-  // Final sanitized drawing object
-  const sanitizedDrawing = {
-    path: sanitizedPath,  
-    stroke: drawing.stroke || '',
-    strokeWidth: drawing.strokeWidth || 1,
-    timestamp: Date.now(),  // Adding timestamp
-  };
-
-  // Add the sanitized drawing to the Firestore board document
-  const boardRef = db.collection('boards').doc(boardId);
-  await boardRef.update({
-    drawings: admin.firestore.FieldValue.arrayUnion(sanitizedDrawing),
+  // Convert pathData to strings for Firestore compatibility
+  const sanitizedPathData = (drawing.path?.pathData || []).map((command) => {
+    // Join each inner array command as a string
+    return command.join(", ");
   });
+
+  const sanitizedDrawing = {
+    path: {
+      left: drawing.path?.left ?? 0,
+      top: drawing.path?.top ?? 0,
+      width: drawing.path?.width ?? 0,
+      height: drawing.path?.height ?? 0,
+      pathData: sanitizedPathData,
+    },
+    stroke: drawing.stroke || '#000000',
+    strokeWidth: drawing.strokeWidth || 1,
+    timestamp: Date.now(),
+  };
+
+  // Broadcast sanitized drawing to other clients
+  socket.to(boardId).emit('drawing', sanitizedDrawing);
+
+  try {
+    const boardRef = db.collection('boards').doc(boardId);
+    await boardRef.update({
+      drawings: admin.firestore.FieldValue.arrayUnion(sanitizedDrawing),
+    });
+    console.log("Drawing saved successfully.");
+  } catch (error) {
+    console.error("Failed to save drawing to Firestore:", error);
+  }
 });
+
+
 
   
 
@@ -117,8 +140,15 @@ socket.on('drawing', async (data) => {
     await boardRef.set({ drawings: [] }, { merge: true }); // Clears `drawings` while keeping other fields
   });
 
-  socket.on('disconnect', () => {
-    console.log(`Client ${socket.id} disconnected`);
+  socket.on('disconnect', (reason) => {
+    console.log(`Client ${socket.id} disconnected due to ${reason}`);
+    if (reason === 'io server disconnect') {
+      // The server disconnected the socket, possibly due to auth or timeout issues.
+      console.error(`Disconnection reason: Server initiated.`);
+    } else if (reason === 'io client disconnect') {
+      // The client disconnected the socket.
+      console.error(`Disconnection reason: Client initiated.`);
+    }
   });
 });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, signOut, updateProfile } from 'firebase/auth';
 import styles from '../styles/dashboard.module.css';
+import { FaUserCircle } from 'react-icons/fa'; // Import Font Awesome icon
 
 const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) => {
   const [user, setUser] = useState(null);
@@ -62,6 +63,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
     <div className={styles.dashboardContainer}>
       {/* Left Panel - Account Info */}
       <div className={styles.userInfo}>
+        <FaUserCircle className={styles.userIcon} size={80} />
         <h3>Account Info</h3>
         {user ? (
           <>
@@ -137,7 +139,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
                       <button onClick={() => onDeleteBoard(board.id)} className={styles.deleteButton}>
                         Delete
                       </button>
-                      <button onClick={() => navigate(`/boards/${board.id}`)} className={styles.joinButton}>
+                      <button onClick={() => navigate('/boards/${board.id}')} className={styles.joinButton}>
                         Enter
                       </button>
                     </div>
@@ -156,13 +158,13 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
             placeholder="Enter Board ID"
             className={styles.boardInput}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') navigate(`/boards/${e.target.value}`);
+              if (e.key === 'Enter') navigate('/boards/${e.target.value}');
             }}
           />
           <button 
             onClick={() => {
               const boardId = document.querySelector(`.${styles.boardInput}`).value;
-              navigate(`/boards/${boardId}`);
+              navigate('/boards/${boardId}');
             }}
             className={styles.actionButton}
           >

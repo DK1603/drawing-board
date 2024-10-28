@@ -8,7 +8,7 @@
   display: flex;
   padding: 40px;
   gap: 20px;
-  background-color: #f0f2f5;
+  background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
   min-height: 100vh;
   font-family: 'Open Sans', sans-serif;
   color: #333;
@@ -16,25 +16,24 @@
 
 /* User Info Section */
 .userInfo {
-  flex: 0.5; /* Reduced width for user info section */
+  flex: 0.5;
   padding: 20px;
-  background-color: #fff;
-  border-right: 1px solid #ddd;
+  background-color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 .userInfo h3 {
-  color: #333;
+  color: #00416a;
+  margin-bottom: 15px;
+}
+
+.userIcon {
+  color: #00416a;
   margin-bottom: 10px;
 }
 
-.userInfo p {
-  margin: 10px 0;
-}
-
-/* Profile Buttons */
 .signOutButton, .editProfileButton, .saveButton {
   background-color: #007bff;
   color: white;
@@ -47,24 +46,17 @@
   transition: background 0.3s ease;
 }
 
+.editProfileButton {
+  background-color: #6c757d;
+  margin-right: 10px;
+}
+
+.editProfileButton:hover,
+.saveButton:hover,
 .signOutButton:hover {
   background-color: #0056b3;
 }
 
-.editProfileButton {
-  background-color: #C0C0C0;
-  margin-right: 10px;
-}
-
-.editProfileButton:hover {
-  background-color: #5a6268;
-}
-
-.saveButton:hover {
-  background-color: #0056b3;
-}
-
-/* Editable Profile Input */
 .editProfileInput {
   width: 80%;
   padding: 8px;
@@ -78,13 +70,13 @@
 .boardActions {
   flex: 2;
   padding: 20px;
-  background-color: #fff;
+  background-color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .boardActions h3 {
-  color: #333;
+  color: #00416a;
   margin-bottom: 20px;
   font-weight: 600;
 }
@@ -152,23 +144,21 @@
 /* Container and Styles for Buttons within Board Items */
 .boardButtons {
   display: flex;
-  gap: 10px; /* Space between each button */
-  padding: 5px;
+  gap: 10px;
 }
 
 .modifyButton, .deleteButton, .joinButton {
   background-color: #007bff;
   color: white;
   border: none;
-  padding: 10px 15px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.3s ease;
 }
 
 .modifyButton:hover {
-  background-color: #C0C0C0
-  ;
+  background-color: #6c757d;
 }
 
 .deleteButton:hover {
@@ -178,3 +168,4 @@
 .joinButton:hover {
   background-color: #28a745;
 }
+

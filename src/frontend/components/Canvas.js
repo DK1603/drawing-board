@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric';
-import { useCallback } from 'react';
 import io from 'socket.io-client';
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
@@ -14,7 +13,7 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
 
   useEffect(() => {
     const initializeSocket = async () => {
-      if (socketRef.current) return; // Prevent reinitialization
+      if (socketRef.current) return;
       try {
         const token = await auth.currentUser.getIdToken();
         socketRef.current = io('http://localhost:3001', {
@@ -24,7 +23,6 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
 
         socketRef.current.emit('joinBoard', { boardId: roomId });
 
-        // Load existing drawings once when joining the board
         socketRef.current.on('loadDrawings', (drawings) => {
           onLoadDrawings(drawings);
         });
@@ -55,125 +53,144 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
     };
   }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
 
-  const broadcastDrawing = (data) => {
-    socketRef.current?.emit('drawing', { boardId: roomId, drawing: data });
-  };
+  const broadcastDrawing = useCallback(
+    (data) => {
+      socketRef.current?.emit('drawing', { boardId: roomId, drawing: data });
+    },
+    [roomId]
+  );
 
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     socketRef.current?.emit('clearCanvas', { roomId });
-  };
+  }, [roomId]);
 
   return { broadcastDrawing, clearCanvas };
 };
 
-// Custom hook for canvas setup and drawing logic
-const useCanvas = (canvasRef, brushColor, brushSize, isErasing, broadcastDrawing, initialDrawings) => {
+// Combined hook for canvas initialization and drawing logic
+const useFabricCanvas = (canvasRef, initialDrawings) => {
   const fabricCanvasRef = useRef(null);
+  const broadcastDrawingRef = useRef(null); // Initialize as null
+
+  // Function to set broadcastDrawingRef
+  const setBroadcastDrawing = useCallback((broadcastFunc) => {
+    broadcastDrawingRef.current = broadcastFunc;
+  }, []);
+
+  // Rest of your code remains the same
+  const updateBrushSettings = useCallback(
+    (color, size, isErasing) => {
+      if (fabricCanvasRef.current) {
+        const brush = fabricCanvasRef.current.freeDrawingBrush;
+        brush.color = isErasing ? 'white' : color;
+        brush.width = size;
+      }
+    },
+    [fabricCanvasRef]
+  );
+
+  const addDrawingToCanvas = useCallback(
+    (drawing) => {
+      const deserializedPathData = (drawing.path.pathData || []).map((command) =>
+        command.split(', ').map((value, index) => (index === 0 ? value : parseFloat(value)))
+      );
+
+      const path = new fabric.Path(deserializedPathData, {
+        left: drawing.path.left,
+        top: drawing.path.top,
+        stroke: drawing.stroke,
+        strokeWidth: drawing.strokeWidth,
+        fill: null,
+        selectable: false,
+        evented: false,
+        strokeUniform: true,
+        globalCompositeOperation: 'source-over',
+      });
+
+      fabricCanvasRef.current.add(path).renderAll();
+    },
+    [fabricCanvasRef]
+  );
+
+  const clearCanvas = useCallback(() => {
+    fabricCanvasRef.current?.clear().renderAll();
+  }, [fabricCanvasRef]);
 
   useEffect(() => {
     if (!fabricCanvasRef.current) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, { isDrawingMode: true });
-      console.log('Canvas initialized:', fabricCanvasRef.current);
-    }
-    const canvas = fabricCanvasRef.current;
 
-    const handlePathCreated = (options) => {
-      const pathObject = options.path;
-      const pathData = pathObject.path;
+      const handlePathCreated = (options) => {
+        const pathObject = options.path;
+        const pathData = pathObject.path;
 
-      const drawingData = {
-        path: {
-          left: pathObject.left,
-          top: pathObject.top,
-          width: pathObject.width,
-          height: pathObject.height,
-          pathData: pathData,
-        },
-        stroke: pathObject.stroke,
-        strokeWidth: pathObject.strokeWidth,
+        const drawingData = {
+          path: {
+            left: pathObject.left,
+            top: pathObject.top,
+            width: pathObject.width,
+            height: pathObject.height,
+            pathData: pathData,
+          },
+          stroke: pathObject.stroke,
+          strokeWidth: pathObject.strokeWidth,
+        };
+
+        if (broadcastDrawingRef.current) {
+          broadcastDrawingRef.current(drawingData);
+        } else {
+          console.warn('broadcastDrawing is not set yet.');
+        }
       };
-      console.log("Broadcasting Drawing Data:", drawingData);
 
-      broadcastDrawing(drawingData);
-    };
+      fabricCanvasRef.current.on('path:created', handlePathCreated);
 
-    canvas.on('path:created', handlePathCreated);
+      // Apply initial brush settings
+      updateBrushSettings('black', 2, false);
 
-    return () => {
-      console.log('Disposing canvas instance');
-      canvas.off('path:created', handlePathCreated);
-      canvas.dispose();
-      fabricCanvasRef.current = null;
-    };
-  }, [broadcastDrawing]);
-
-  useEffect(() => {
-    console.log('Loading initial drawings:', initialDrawings);
-    if (fabricCanvasRef.current && initialDrawings.length > 0) {
-      initialDrawings.forEach((drawing) => {
-        addDrawingToCanvas(drawing);
-      });
-    }
-  }, [initialDrawings]);
-
-  useEffect(() => {
-    if (fabricCanvasRef.current) {
-      console.log(`Setting brush - Color: ${brushColor}, Size: ${brushSize}`);
-
-      if (!isErasing) {
-        fabricCanvasRef.current.freeDrawingBrush.color = brushColor;
-        fabricCanvasRef.current.freeDrawingBrush.width = brushSize;
-      } else {
-        fabricCanvasRef.current.freeDrawingBrush.color = 'white';
+      // Load initial drawings
+      if (initialDrawings && initialDrawings.length > 0) {
+        initialDrawings.forEach(addDrawingToCanvas);
       }
+
+      return () => {
+        fabricCanvasRef.current?.dispose();
+        fabricCanvasRef.current = null;
+      };
     }
-  }, [brushColor, brushSize, isErasing]);
+  }, [canvasRef, addDrawingToCanvas, initialDrawings, updateBrushSettings]);
 
-  const addDrawingToCanvas = useCallback((drawing) => {
-    const deserializedPathData = (drawing.path.pathData || []).map((command) => {
-      return command.split(", ").map((value, index) => {
-        return index === 0 ? value : parseFloat(value);
-      });
-    });
-  
-    const path = new fabric.Path(deserializedPathData, {
-      left: drawing.path.left,
-      top: drawing.path.top,
-      stroke: drawing.stroke,
-      strokeWidth: drawing.strokeWidth,
-      fill: null,
-      selectable: false,
-      evented: false,
-      strokeUniform: true,
-      globalCompositeOperation: 'source-over',
-    });
-  
-    fabricCanvasRef.current.add(path).renderAll();
-  }, []);
-  
-
-  const clearCanvas = useCallback(() => {
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.clear().renderAll();
-    }
-  }, []);
-  
-
-  return { clearCanvas, addDrawingToCanvas };
+  return { fabricCanvasRef, clearCanvas, addDrawingToCanvas, updateBrushSettings, setBroadcastDrawing };
 };
 
+
 // Main Canvas component
-const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
+const Canvas = forwardRef(({ roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5  }, ref) => {
   const [isErasing, setIsErasing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [initialDrawings, setInitialDrawings] = useState([]);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
 
-  const handleReceiveDrawing = useCallback((drawing) => addDrawingToCanvas(drawing), []);
-  const handleClearCanvas = useCallback(() => clearCanvas(), []);
+    // Define states for brush color, brush size, and eraser size
+    const [brushColor, setBrushColor] = useState(initialBrushColor);
+    const [brushSize, setBrushSize] = useState(initialBrushSize);
+    const [eraserSize, setEraserSize] = useState(10); // Default eraser size
+  // Initialize canvas and get drawing functions
+  const {
+    fabricCanvasRef,
+    clearCanvas,
+    addDrawingToCanvas,
+    updateBrushSettings,
+    setBroadcastDrawing,
+  } = useFabricCanvas(canvasRef, initialDrawings);
+
+  // Handle receiving drawings and clearing canvas
+  const handleReceiveDrawing = useCallback((drawing) => addDrawingToCanvas(drawing), [addDrawingToCanvas]);
+  const handleClearCanvas = useCallback(() => clearCanvas(), [clearCanvas]);
   const handleLoadDrawings = useCallback((drawings) => setInitialDrawings(drawings), []);
 
+  // Initialize socket connection
   const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
     roomId,
     handleReceiveDrawing,
@@ -181,21 +198,25 @@ const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
     handleLoadDrawings
   );
 
-  const { clearCanvas, addDrawingToCanvas } = useCanvas(
-    canvasRef,
-    brushColor,
-    brushSize,
-    isErasing,
-    broadcastDrawing,
-    initialDrawings
-  );
+  // Set broadcastDrawing in useFabricCanvas once it's available
+  useEffect(() => {
+    if (broadcastDrawing) {
+      setBroadcastDrawing(broadcastDrawing);
+    }
+  }, [broadcastDrawing, setBroadcastDrawing]);
+
+  // Update brush settings when brushColor, brushSize, or isErasing changes
+  useEffect(() => {
+    updateBrushSettings(brushColor, brushSize, isErasing);
+  }, [brushColor, brushSize, isErasing, updateBrushSettings]);
 
   useImperativeHandle(ref, () => ({
     clearCanvas: () => {
       clearCanvas();
       clearSocketCanvas();
-    }
+    },
   }));
+  
 
   const handleSignOut = () => {
     firebaseSignOut(getAuth())
@@ -213,11 +234,74 @@ const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
 
   return (
     <div className={styles.boardContainer}>
+      {/* Toolbar */}
+      <div className={styles.toolbar}>
+        <button className={styles.toolButton} onClick={handleEraserToggle}>
+          {isErasing ? '✏️ Brush' : '🧽 Eraser'} {/* Toggle icon for eraser/brush */}
+        </button>
+        <button className={styles.toolButton} onClick={clearSocketCanvas}>🗑️ Clear Canvas</button>
+        <input
+          type="text"
+          placeholder="Desk Name"
+          className={styles.deskNameInput}
+        />
+        <button className={styles.signOutButton} onClick={handleSignOut}>Sign Out</button>
+      </div>
+  
+      {/* Canvas Wrapper */}
       <div className={styles.canvasWrapper}>
         <canvas ref={canvasRef} id="main-canvas" width={window.innerWidth} height={window.innerHeight} />
       </div>
+  
+      {/* Bottom Left - Color Picker and Size Sliders */}
+      <div className={styles.controlsWrapper}>
+  {/* Color Picker at the top */}
+  <div className={styles.colorPickerWrapper}>
+    <input
+      type="color"
+      className={styles.colorPicker}
+      value={brushColor}
+      onChange={(e) => setBrushColor(e.target.value)}
+    />
+  </div>
+
+  {/* Brush Size Slider with Label below */}
+  <div className={styles.sliderGroup}>
+    <input
+      type="range"
+      min="1"
+      max="50"
+      value={brushSize}
+      onChange={(e) => setBrushSize(parseInt(e.target.value, 10))}
+      className={styles.slider}
+    />
+    <label className={styles.sliderLabel}>Color Picker & Brush Size</label>
+  </div>
+
+  {/* Eraser Size Slider with Label below */}
+  <div className={styles.sliderGroup}>
+    <input
+      type="range"
+      min="1"
+      max="50"
+      value={eraserSize}
+      onChange={(e) => setEraserSize(parseInt(e.target.value, 10))}
+      className={styles.slider}
+    />
+    <label className={styles.sliderLabel}></label>
+  </div>
+</div>
+
+  
+      {/* Bottom Right - User List */}
+      <div className={styles.userList}>
+        <div className={styles.userItem}>User 1</div>
+        <div className={styles.userItem}>User 2</div>
+      </div>
     </div>
   );
+  
+  
 });
 
 export default Canvas;

@@ -163,6 +163,7 @@ const useFabricCanvas = (canvasRef, initialDrawings) => {
   return { fabricCanvasRef, clearCanvas, addDrawingToCanvas, updateBrushSettings, setBroadcastDrawing };
 };
 
+
 // Main Canvas component
 const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
   const [isErasing, setIsErasing] = useState(false);

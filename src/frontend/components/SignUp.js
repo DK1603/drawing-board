@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import firebaseApp from '../services/firebase-config';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import styles from '../styles/auth_style.module.css';  // Import the CSS module
+import styles from '../styles/auth_style.module.css';
 
 function SignUp() {
   const [email, setEmail] = useState('');

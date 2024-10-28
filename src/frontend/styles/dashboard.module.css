@@ -1,61 +1,180 @@
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
 .dashboardContainer {
-    display: flex;
-    padding: 20px;
-  }
-  
-  .userInfo {
-    flex: 1;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-right: 1px solid #ddd;
-  }
-  
-  .boardActions {
-    flex: 2;
-    padding: 20px;
-  }
-  
-  .actionSection {
-    margin-bottom: 20px;
-  }
-  
-  .boardSelect, .boardInput {
-    width: 100%;
-    padding: 10px;
-    margin-top: 10px;
-  }
-  
-  .actionButton {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-  
-  .signOutButton {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-  }
-  
-  .boardList {
-    list-style: none;
-    padding: 0;
-  }
-  
-  .boardList li {
-    margin: 5px 0;
-  }
-  
-  .boardList li button {
-    background: none;
-    border: none;
-    color: #007bff;
-    cursor: pointer;
-    padding: 5px;
-  }
-  
+  display: flex;
+  padding: 40px;
+  gap: 20px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+  font-family: 'Open Sans', sans-serif;
+  color: #333;
+}
+
+/* User Info Section */
+.userInfo {
+  flex: 0.5; /* Reduced width for user info section */
+  padding: 20px;
+  background-color: #fff;
+  border-right: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.userInfo h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.userInfo p {
+  margin: 10px 0;
+}
+
+/* Profile Buttons */
+.signOutButton, .editProfileButton, .saveButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 10px;
+  transition: background 0.3s ease;
+}
+
+.signOutButton:hover {
+  background-color: #0056b3;
+}
+
+.editProfileButton {
+  background-color: #C0C0C0;
+  margin-right: 10px;
+}
+
+.editProfileButton:hover {
+  background-color: #5a6268;
+}
+
+.saveButton:hover {
+  background-color: #0056b3;
+}
+
+/* Editable Profile Input */
+.editProfileInput {
+  width: 80%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-size: 1rem;
+}
+
+/* Board Actions Section */
+.boardActions {
+  flex: 2;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.boardActions h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.actionSection {
+  margin-bottom: 30px;
+}
+
+/* Action Button for creating or joining boards */
+.actionButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: background 0.3s ease;
+}
+
+.actionButton:hover {
+  background-color: #0056b3;
+}
+
+.boardInput {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Board List Items */
+.boardList {
+  list-style: none;
+  padding: 0;
+}
+
+.boardItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.3s ease;
+}
+
+.boardItem:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Editable Board Input Field */
+.editInput {
+  font-size: 1rem;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-right: 10px;
+  width: 70%;
+}
+
+/* Container and Styles for Buttons within Board Items */
+.boardButtons {
+  display: flex;
+  gap: 10px; /* Space between each button */
+  padding: 5px;
+}
+
+.modifyButton, .deleteButton, .joinButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.modifyButton:hover {
+  background-color: #C0C0C0
+  ;
+}
+
+.deleteButton:hover {
+  background-color: #e74c3c;
+}
+
+.joinButton:hover {
+  background-color: #28a745;
+}

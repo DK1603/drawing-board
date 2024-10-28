@@ -6,7 +6,6 @@ import io from 'socket.io-client';
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 
-
 // Custom hook for socket connection
 const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   const socketRef = useRef(null);
@@ -15,7 +14,7 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
 
   useEffect(() => {
     const initializeSocket = async () => {
-      if(socketRef.current) return; //TESTING
+      if (socketRef.current) return; // Prevent reinitialization
       try {
         const token = await auth.currentUser.getIdToken();
         socketRef.current = io('http://localhost:3001', {
@@ -67,24 +66,20 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   return { broadcastDrawing, clearCanvas };
 };
 
-
 // Custom hook for canvas setup and drawing logic
 const useCanvas = (canvasRef, brushColor, brushSize, isErasing, broadcastDrawing, initialDrawings) => {
   const fabricCanvasRef = useRef(null);
 
   useEffect(() => {
-    fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, { isDrawingMode: true });
+    if (!fabricCanvasRef.current) {
+      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, { isDrawingMode: true });
+      console.log('Canvas initialized:', fabricCanvasRef.current);
+    }
     const canvas = fabricCanvasRef.current;
-    /*
-    const handlePathCreated = (options) => {
-      const data = options.path.toObject();
-      broadcastDrawing(data);
-    };
-    */
 
     const handlePathCreated = (options) => {
-      const pathObject = options.path; // fabric.Path object created on the canvas
-      const pathData = pathObject.path; // Full path command array from fabric.Path
+      const pathObject = options.path;
+      const pathData = pathObject.path;
 
       const drawingData = {
         path: {
@@ -92,50 +87,52 @@ const useCanvas = (canvasRef, brushColor, brushSize, isErasing, broadcastDrawing
           top: pathObject.top,
           width: pathObject.width,
           height: pathObject.height,
-          pathData: pathData, // Full path command array
+          pathData: pathData,
         },
-        stroke: pathObject.stroke, // Color of the path
-        strokeWidth: pathObject.strokeWidth, // Width of the stroke
+        stroke: pathObject.stroke,
+        strokeWidth: pathObject.strokeWidth,
       };
-      console.log("Final Drawing Data:", drawingData);
+      console.log("Broadcasting Drawing Data:", drawingData);
 
-      broadcastDrawing(drawingData); // Send to server
+      broadcastDrawing(drawingData);
     };
-  
+
     canvas.on('path:created', handlePathCreated);
 
     return () => {
-      canvas.off('path:created');
+      console.log('Disposing canvas instance');
+      canvas.off('path:created', handlePathCreated);
       canvas.dispose();
+      fabricCanvasRef.current = null;
     };
   }, [broadcastDrawing]);
 
-  // Load initial drawings once onto the canvas
   useEffect(() => {
+    console.log('Loading initial drawings:', initialDrawings);
     if (fabricCanvasRef.current && initialDrawings.length > 0) {
       initialDrawings.forEach((drawing) => {
         addDrawingToCanvas(drawing);
       });
     }
-  }, [initialDrawings]); // Run only when initialDrawings are loaded
+  }, [initialDrawings]);
 
-  // Effect to handle brush color, preserving previous color even when toggling eraser
   useEffect(() => {
     if (fabricCanvasRef.current) {
+      console.log(`Setting brush - Color: ${brushColor}, Size: ${brushSize}`);
+
       if (!isErasing) {
         fabricCanvasRef.current.freeDrawingBrush.color = brushColor;
         fabricCanvasRef.current.freeDrawingBrush.width = brushSize;
       } else {
-        fabricCanvasRef.current.freeDrawingBrush.color = 'white'; // Use white for eraser
+        fabricCanvasRef.current.freeDrawingBrush.color = 'white';
       }
     }
   }, [brushColor, brushSize, isErasing]);
 
-  const addDrawingToCanvas = (drawing) => {
-    // Deserialize pathData back into an array of arrays
+  const addDrawingToCanvas = useCallback((drawing) => {
     const deserializedPathData = (drawing.path.pathData || []).map((command) => {
       return command.split(", ").map((value, index) => {
-        return index === 0 ? value : parseFloat(value); // Convert x, y to numbers
+        return index === 0 ? value : parseFloat(value);
       });
     });
   
@@ -144,7 +141,7 @@ const useCanvas = (canvasRef, brushColor, brushSize, isErasing, broadcastDrawing
       top: drawing.path.top,
       stroke: drawing.stroke,
       strokeWidth: drawing.strokeWidth,
-      fill:null,
+      fill: null,
       selectable: false,
       evented: false,
       strokeUniform: true,
@@ -152,15 +149,18 @@ const useCanvas = (canvasRef, brushColor, brushSize, isErasing, broadcastDrawing
     });
   
     fabricCanvasRef.current.add(path).renderAll();
-  };
+  }, []);
+  
 
-  const clearCanvas = () => {
-    fabricCanvasRef.current.clear().renderAll();
-  };
+  const clearCanvas = useCallback(() => {
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.clear().renderAll();
+    }
+  }, []);
+  
 
   return { clearCanvas, addDrawingToCanvas };
 };
-
 
 // Main Canvas component
 const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
@@ -179,7 +179,7 @@ const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
     handleReceiveDrawing,
     handleClearCanvas,
     handleLoadDrawings
-    );
+  );
 
   const { clearCanvas, addDrawingToCanvas } = useCanvas(
     canvasRef,
@@ -221,4 +221,3 @@ const Canvas = forwardRef(({ roomId, brushColor, brushSize }, ref) => {
 });
 
 export default Canvas;
-

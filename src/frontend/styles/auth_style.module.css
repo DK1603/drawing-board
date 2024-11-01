@@ -1,11 +1,13 @@
 /* auth_style.module.css */
+@import '@fortawesome/fontawesome-free/css/all.min.css';
 
 .authPage {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+  background: #cadadc;
+  /* background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); */
   font-family: 'Arial', sans-serif;
 }
 
@@ -194,7 +196,7 @@ input:not(:placeholder-shown) ~ label {
 /* Style for the login redirect section */
 .loginRedirect {
   margin-top: 15px;
-  font-size: 0.9em;
+  font-size: 16px;
   color: #555;
   text-align: center;
 }
@@ -206,12 +208,38 @@ input:not(:placeholder-shown) ~ label {
   color: #00416a;
   font-weight: bold;
   cursor: pointer;
-  text-decoration: underline;
+  text-decoration: none;
   padding: 0;
-  font-size: 0.9em;
+  font-size: 16px;
 }
 
 .loginButton:hover {
   color: #66a6ff;
 }
+.togglePassword {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #999;
+  font-size: 1.2em;
+  transition: color 0.3s;
+}
 
+.togglePassword:hover {
+  color: #00416a;
+}
+
+/* Add red border to the input field when there's an error */
+.errorInput input {
+  border-color: #ff4d4d; /* Red color for the error */
+}
+
+.error {
+  color: #ff4d4d; /* Red color for the error text */
+  font-size: 0.9em;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  text-align: left;
+}

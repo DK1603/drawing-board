@@ -2,30 +2,51 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import firebaseApp from '../services/firebase-config';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import styles from '../styles/auth_style.module.css';
 
 function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [setErrorMessage] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
   const auth = getAuth(firebaseApp);
   const navigate = useNavigate();
 
   const handleSignUp = (e) => {
     e.preventDefault();
-    setErrorMessage(''); // Clear any previous errors
+    setErrorMessage('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmErrorMessage('');
 
+    // Custom validation for empty fields
+    if (!email) {
+      setEmailError('Enter email');
+      return;
+    }
+    if (!password) {
+      setPasswordError('Enter password');
+      return;
+    }
+    if (!confirmPassword) {
+      setConfirmErrorMessage('Confirm your password');
+      return;
+    }
     if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match!');
+      setConfirmErrorMessage("Passwords don't match!");
       return;
     }
 
     createUserWithEmailAndPassword(auth, email, password)
       .then((userCredential) => {
         console.log('User registered:', userCredential.user);
-        setShowModal(true); // Show modal on successful registration
+        setShowModal(true);
       })
       .catch((error) => {
         if (error.code === 'auth/email-already-in-use') {
@@ -36,65 +57,96 @@ function SignUp() {
       });
   };
 
-  // Handle modal close and navigate to login page
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (value.includes('@')) {
+      setEmailError('');
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    if (value) {
+      setPasswordError('');
+    }
+  };
+
+  const handleConfirmPasswordChange = (e) => {
+    const value = e.target.value;
+    setConfirmPassword(value);
+    if (value === password) {
+      setConfirmErrorMessage('');
+    }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword((prevShowPassword) => !prevShowPassword);
+  };
+
   const handleModalClose = () => {
     setShowModal(false);
-    navigate('/login'); // Redirect to login page
+    navigate('/login');
   };
 
   return (
     <div className={styles.authPage}>
       <div className={styles.wrapper}>
         <h2 className={styles.title}>Sign Up</h2>
-        <form className={styles.form} onSubmit={handleSignUp}>
-          <div className={styles.inputField}>
+        <form className={styles.form} onSubmit={handleSignUp} noValidate>
+          <div className={`${styles.inputField} ${emailError ? styles.errorInput : ''}`}>
             <input
               type="email"
               id="email"
-              required
+              autoComplete="off"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               placeholder=" "
             />
             <label htmlFor="email">Email</label>
           </div>
-          <div className={styles.inputField}>
+          {emailError && <p className={styles.error}>{emailError}</p>}
+
+          <div className={`${styles.inputField} ${passwordError ? styles.errorInput : ''}`}>
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="password"
-              required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               placeholder=" "
             />
             <label htmlFor="password">Password</label>
+            <span
+              className={styles.togglePassword}
+              onClick={togglePasswordVisibility}
+            >
+              <i className={showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'}></i>
+            </span>
           </div>
-          <div className={styles.inputField}>
+          {passwordError && <p className={styles.error}>{passwordError}</p>}
+
+          <div className={`${styles.inputField} ${confirmErrorMessage ? styles.errorInput : ''}`}>
             <input
               type="password"
               id="confirm-password"
-              required
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={handleConfirmPasswordChange}
               placeholder=" "
             />
             <label htmlFor="confirm-password">Confirm Password</label>
           </div>
-
-          {/* Error Message Display */}
-          {errorMessage && <p className={styles.error}>{errorMessage}</p>}
+          {confirmErrorMessage && <p className={styles.error}>{confirmErrorMessage}</p>}
 
           <button className={styles.button} type="submit">Sign Up</button>
         </form>
 
-        {/* Small button to go to login page */}
         <div className={styles.loginRedirect}>
           Already have an account?{' '}
           <button className={styles.loginButton} onClick={() => navigate('/login')}>Go to Login</button>
         </div>
       </div>
 
-      {/* Modal for successful registration */}
       {showModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>

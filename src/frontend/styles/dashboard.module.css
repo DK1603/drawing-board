@@ -8,7 +8,8 @@
   display: flex;
   padding: 40px;
   gap: 20px;
-  background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+  background: #cadadc;
+  /* background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); */
   min-height: 100vh;
   font-family: 'Open Sans', sans-serif;
   color: #333;
@@ -51,7 +52,11 @@
   margin-right: 10px;
 }
 
-.editProfileButton:hover,
+.editProfileButton:hover{
+  background-color: #4c5157;
+}
+
+
 .saveButton:hover,
 .signOutButton:hover {
   background-color: #0056b3;

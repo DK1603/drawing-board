@@ -20,10 +20,10 @@ function Login() {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
-    setEmailError(''); // Clear previous email error
-    setPasswordError(''); // Clear previous password error
+    setEmailError(''); 
+    setPasswordError(''); 
 
-    // Custom validation for empty fields
+    
     if (!email) {
       setEmailError('Enter email');
       setIsLoading(false);
@@ -77,7 +77,7 @@ function Login() {
     <div className={styles.authPage}>
       <div className={styles.wrapper}>
         <h2 className={styles.title}>Welcome back!</h2>
-        {/* Disable browser validation with noValidate */}
+        
         <form className={styles.form} onSubmit={handleLogin} noValidate>
           <div className={`${styles.inputField} ${emailError ? styles.errorInput : ''}`}>
             <input

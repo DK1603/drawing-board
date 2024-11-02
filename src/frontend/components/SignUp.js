@@ -11,7 +11,7 @@ function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
@@ -25,7 +25,7 @@ function SignUp() {
     setPasswordError('');
     setConfirmErrorMessage('');
 
-    // Custom validation for empty fields
+    
     if (!email) {
       setEmailError('Enter email');
       return;
@@ -139,6 +139,8 @@ function SignUp() {
           {confirmErrorMessage && <p className={styles.error}>{confirmErrorMessage}</p>}
 
           <button className={styles.button} type="submit">Sign Up</button>
+          
+          {errorMessage && <p className={styles.error}>{errorMessage}</p>}
         </form>
 
         <div className={styles.loginRedirect}>

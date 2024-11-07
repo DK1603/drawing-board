@@ -55,27 +55,33 @@ io.on('connection', async (socket) => {
   socket.on('joinBoard', async ({ boardId }) => {
     console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
     socket.join(boardId);
-
+  
     // Check if the board exists in Firestore
     const boardRef = db.collection('boards').doc(boardId);
     const boardDoc = await boardRef.get();
-
+  
     if (!boardDoc.exists) {
       await boardRef.set({
         boardId: boardId,
         createdBy: user.uid,
-        drawings: [],
+        drawings: [], // Initialize drawings array
       });
     }
-
-  // Send existing drawings for the board to the newly connected client
-  const drawings = boardDoc.data()?.drawings || [];
-  console.log("Drawings sent to client on load:", drawings); // Verify drawings data format
-  socket.emit('loadDrawings', drawings);
+  
+    // Load existing drawings from Firestore
+    const boardData = (await boardRef.get()).data();
+    const drawings = boardData.drawings || [];
+  
+    console.log("Drawings sent to client on load:", drawings);
+  
+    // Send existing drawings to the newly connected client
+    socket.emit('loadDrawings', drawings);
   });
+  
+  
 
 
-// Refined drawing storage in Firestore with simplified path structure
+// Drawing storage in Firestore with simplified path structure
 socket.on('drawing', async (data) => {
   console.log("Received data on 'drawing' event:", data);
 
@@ -91,50 +97,45 @@ socket.on('drawing', async (data) => {
     return;
   }
 
-  console.log(`Received drawing from ${socket.id} on board ${boardId}:`, drawing);
+  const { type, points, stroke, strokeWidth, isErasing } = drawing;
 
-  // Convert pathData to strings for Firestore compatibility
-  const sanitizedPathData = (drawing.path?.pathData || []).map((command) => {
-    // Join each inner array command as a string
-    return command.join(", ");
-  });
+  if (type === 'draw' && points && points.length > 0) {
+    // Broadcast the drawing data to other clients
+    socket.to(boardId).emit('drawing', drawing);
 
-  const sanitizedDrawing = {
-    path: {
-      left: drawing.path?.left ?? 0,
-      top: drawing.path?.top ?? 0,
-      width: drawing.path?.width ?? 0,
-      height: drawing.path?.height ?? 0,
-      pathData: sanitizedPathData,
-    },
-    stroke: drawing.stroke || '#000000',
-    strokeWidth: drawing.strokeWidth || 1,
-    timestamp: Date.now(),
-  };
+    // Store the drawing data in the 'drawings' array field of the board document
+    try {
+      const boardRef = db.collection('boards').doc(boardId);
 
-  // Broadcast sanitized drawing to other clients
-  socket.to(boardId).emit('drawing', sanitizedDrawing);
+      // Use arrayUnion to add the new drawing to the 'drawings' array
+      await boardRef.update({
+        drawings: admin.firestore.FieldValue.arrayUnion({
+          type,
+          points,
+          stroke,
+          strokeWidth,
+          isErasing,
+          timestamp: Date.now(),
+        }),
+      });
 
-  try {
-    const boardRef = db.collection('boards').doc(boardId);
-    await boardRef.update({
-      drawings: admin.firestore.FieldValue.arrayUnion(sanitizedDrawing),
-    });
-    console.log("Drawing saved successfully.");
-  } catch (error) {
-    console.error("Failed to save drawing to Firestore:", error);
+      console.log("Drawing data saved successfully to drawings array.");
+    } catch (error) {
+      console.error("Failed to save drawing data to Firestore:", error);
+    }
+  } else if (type === 'end') {
+    // Optionally handle end of drawing if needed
+    console.log("Received end of drawing from client.");
+  } else {
+    console.error("Invalid drawing data received:", drawing);
   }
 });
 
-
-
-  
 
   // Clear drawings for a board
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
-
     // Clear drawings in Firestore
     const boardRef = db.collection('boards').doc(roomId);
     await boardRef.set({ drawings: [] }, { merge: true }); // Clears `drawings` while keeping other fields

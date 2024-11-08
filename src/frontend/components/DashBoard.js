@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, signOut, updateProfile } from 'firebase/auth';
 import styles from '../styles/dashboard.module.css';
-import { FaUserCircle } from 'react-icons/fa'; // Import Font Awesome icon
+import { FaUserCircle } from 'react-icons/fa';
 
 const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) => {
   const [user, setUser] = useState(null);
@@ -49,14 +49,16 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
   };
 
   const startEditingBoard = (board) => {
-    setEditingBoardId(board.id);
-    setEditedBoardName(board.name);
+    setEditingBoardId(board.id);       
+    setEditedBoardName(board.name);    
   };
 
   const saveBoardName = (boardId) => {
-    onEditBoard(boardId, editedBoardName);
-    setEditingBoardId(null);
-    setEditedBoardName('');
+    if (editedBoardName.trim()) {
+      onEditBoard(boardId, editedBoardName); 
+    }
+    setEditingBoardId(null); 
+    setEditedBoardName(''); 
   };
 
   return (
@@ -104,7 +106,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
 
         {/* Create a New Board */}
         <div className={styles.actionSection}>
-          <button onClick={onHostNewBoard} className={styles.actionButton}>
+          <button onClick={onHostNewBoard} className={styles.CreateBoardActionButton}>
             Create New Board
           </button>
         </div>
@@ -120,8 +122,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
                     <input
                       type="text"
                       value={editedBoardName}
-                      onChange={(e) => setEditedBoardName(e.target.value)}
-                      onBlur={() => saveBoardName(board.id)}
+                      onChange={(e) => setEditedBoardName(e.target.value)} // Update as user types
                       className={styles.editInput}
                       autoFocus
                     />
@@ -139,7 +140,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
                       <button onClick={() => onDeleteBoard(board.id)} className={styles.deleteButton}>
                         Delete
                       </button>
-                      <button onClick={() => navigate('/boards/${board.id}')} className={styles.joinButton}>
+                      <button onClick={() => navigate(`/boards/${board.id}`)} className={styles.joinButton}>
                         Enter
                       </button>
                     </div>
@@ -158,13 +159,13 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
             placeholder="Enter Board ID"
             className={styles.boardInput}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') navigate('/boards/${e.target.value}');
+              if (e.key === 'Enter') navigate(`/boards/${e.target.value}`);
             }}
           />
           <button 
             onClick={() => {
               const boardId = document.querySelector(`.${styles.boardInput}`).value;
-              navigate('/boards/${boardId}');
+              navigate(`/boards/${boardId}`);
             }}
             className={styles.actionButton}
           >

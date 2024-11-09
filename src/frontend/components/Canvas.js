@@ -7,11 +7,15 @@ import React, {
   useState,
   useCallback,
 } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric'; // Fabric.js library for canvas manipulation
 import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
+
+
+//!!!! works
 
 // Custom hook for managing the socket connection
 const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
@@ -138,35 +142,64 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
   );
 
   // Function to add drawing data to the canvas
+  const ongoingStrokes = useRef({});
+
   const addDrawingToCanvas = useCallback(
     (drawing) => {
-      if (drawing.type === 'draw' && drawing.points && drawing.points.length > 1) {
-        const { points, stroke, strokeWidth, isErasing } = drawing;
-
-        console.log('Adding drawing to canvas:', drawing);
-
-        // Draw lines between consecutive points
-        for (let i = 1; i < points.length; i++) {
-          const line = new fabric.Line(
-            [points[i - 1].x, points[i - 1].y, points[i].x, points[i].y],
-            {
-              stroke: isErasing ? 'white' : stroke,
-              strokeWidth,
-              selectable: false,
-              evented: false,
-              strokeLineCap: 'round',
-              strokeLineJoin: 'round',
-            }
-          );
-          fabricCanvasRef.current.add(line);
+      const { strokeId, type, points, stroke, strokeWidth, isErasing } = drawing;
+  
+      if (type === 'stroke' && points && points.length > 0) {
+        // Create a new polyline with all the points
+        const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
+        const polyline = new fabric.Polyline(pointArray, {
+          stroke: isErasing ? 'white' : stroke,
+          strokeWidth,
+          fill: null,
+          selectable: false,
+          evented: false,
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+        });
+        fabricCanvasRef.current.add(polyline);
+        fabricCanvasRef.current.renderAll();
+      } else if (type === 'draw' && points && points.length > 0) {
+        // Handle real-time drawing updates
+        let polyline = ongoingStrokes.current[strokeId];
+        if (!polyline) {
+          // Create a new polyline
+          polyline = new fabric.Polyline([], {
+            stroke: isErasing ? 'white' : stroke,
+            strokeWidth,
+            fill: null,
+            selectable: false,
+            evented: false,
+            strokeLineCap: 'round',
+            strokeLineJoin: 'round',
+          });
+          ongoingStrokes.current[strokeId] = polyline;
+          fabricCanvasRef.current.add(polyline);
         }
-        fabricCanvasRef.current.renderAll(); // Render the canvas after adding lines
+  
+        // Append new points to the polyline
+        const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
+        polyline.points = polyline.points.concat(newPoints);
+  
+        polyline.set({
+          dirty: true,
+          objectCaching: false,
+        });
+        fabricCanvasRef.current.renderAll();
+      } else if (type === 'end') {
+        // Stroke ended; remove from ongoing strokes
+        delete ongoingStrokes.current[strokeId];
       } else {
         console.warn('Invalid drawing data received:', drawing);
       }
     },
-    []
+    [fabricCanvasRef]
   );
+  
+
 
   // Function to clear the canvas
   const clearCanvas = useCallback(() => {
@@ -189,6 +222,7 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
 
       // Event handler for collecting points
       let collectedPoints = [];
+      let currentStrokeId = null;
       let lastSentTime = 0; // Timestamp for throttling
 
       // Mouse down event
@@ -196,6 +230,9 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
         console.log('mouse:down event fired');
         const pointer = fabricCanvasRef.current.getPointer(opt.e);
         collectedPoints = [{ x: pointer.x, y: pointer.y }];
+        const timestamp = Date.now();
+
+        currentStrokeId = `${timestamp}_${uuidv4()}`;
       });
 
       // Mouse move event
@@ -207,12 +244,13 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
 
         const now = Date.now();
         //sends data every 0.1 s
-        if (now - lastSentTime >= 100) {
+        if (now - lastSentTime >= 8) {
           lastSentTime = now;
 
           const drawingData = {
+            strokeId: currentStrokeId,
             type: 'draw',
-            points: collectedPoints.slice(),
+            points: [pointer], // Send the latest point
             stroke: fabricCanvasRef.current.freeDrawingBrush.color,
             strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
             isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
@@ -223,35 +261,32 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
           // Broadcast the drawing data
           if (broadcastDrawingRef.current && collectedPoints.length > 0) {
             broadcastDrawingRef.current(drawingData);
-            collectedPoints = []; // Reset collected points after sending
           }
         }
       });
 
-      // Mouse up event
-      fabricCanvasRef.current.on('mouse:up', () => {
-        console.log('mouse:up event fired');
-        if (collectedPoints.length > 0) {
-          const drawingData = {
-            type: 'draw',
-            points: collectedPoints.slice(),
-            stroke: fabricCanvasRef.current.freeDrawingBrush.color,
-            strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
-            isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
-          };
-
-          console.log('Broadcasting final drawing data:', drawingData);
-
+        // Mouse up event
+        fabricCanvasRef.current.on('mouse:up', () => {
+          console.log('mouse:up event fired');
           if (broadcastDrawingRef.current) {
-            broadcastDrawingRef.current(drawingData);
-            collectedPoints = []; // Reset collected points
+            // Send the entire stroke to the server for saving
+            const strokeData = {
+              strokeId: currentStrokeId,
+              type: 'stroke',
+              points: collectedPoints,
+              stroke: fabricCanvasRef.current.freeDrawingBrush.color,
+              strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
+              isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
+            };
+        
+            broadcastDrawingRef.current(strokeData);
           }
-        }
+          collectedPoints = [];
+          currentStrokeId = null;
+        });
+        
+        
 
-        if (broadcastDrawingRef.current) {
-          broadcastDrawingRef.current({ type: 'end' });
-        }
-      });
 
       // Load any initial drawings onto the canvas
       if (initialDrawings && initialDrawings.length > 0) {
@@ -328,14 +363,19 @@ const Canvas = forwardRef(
 
     // Handle loading initial drawings when joining a room
     const handleLoadDrawings = useCallback(
-      (drawings) => {
-        console.log('handleLoadDrawings called with drawings:', drawings);
-        drawings.forEach((drawing) => {
-          addDrawingToCanvas(drawing);
+      (strokes) => {
+        console.log('handleLoadDrawings called with strokes:', strokes);
+        strokes.forEach((stroke) => {
+          addDrawingToCanvas({
+            ...stroke,
+            type: 'stroke', // Ensure type is 'stroke' for loaded strokes
+          });
         });
       },
       [addDrawingToCanvas]
     );
+    
+    
 
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(

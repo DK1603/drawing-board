@@ -56,27 +56,18 @@ io.on('connection', async (socket) => {
     console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
     socket.join(boardId);
   
-    // Check if the board exists in Firestore
+    // Load existing strokes from Firestore
     const boardRef = db.collection('boards').doc(boardId);
-    const boardDoc = await boardRef.get();
+    const strokesSnapshot = await boardRef.collection('strokes').get();
   
-    if (!boardDoc.exists) {
-      await boardRef.set({
-        boardId: boardId,
-        createdBy: user.uid,
-        drawings: [], // Initialize drawings array
-      });
-    }
+    const strokes = strokesSnapshot.docs.map((doc) => doc.data());
   
-    // Load existing drawings from Firestore
-    const boardData = (await boardRef.get()).data();
-    const drawings = boardData.drawings || [];
+    console.log("Strokes sent to client on load:", strokes);
   
-    console.log("Drawings sent to client on load:", drawings);
-  
-    // Send existing drawings to the newly connected client
-    socket.emit('loadDrawings', drawings);
+    // Send existing strokes to the newly connected client
+    socket.emit('loadDrawings', strokes);
   });
+  
   
   
 
@@ -85,61 +76,67 @@ io.on('connection', async (socket) => {
 socket.on('drawing', async (data) => {
   console.log("Received data on 'drawing' event:", data);
 
-  if (!data || !data.drawing) {
-    console.error("Received drawing event with undefined data or drawing:", data);
-    return;
-  }
-
   const { boardId, drawing } = data;
+  const { type, strokeId, points, stroke, strokeWidth, isErasing } = drawing;
 
-  if (!boardId || !drawing) {
-    console.error("Received drawing event with missing boardId or drawing:", data);
-    return;
-  }
-
-  const { type, points, stroke, strokeWidth, isErasing } = drawing;
+  // Broadcast the drawing data to other clients
+  socket.to(boardId).emit('drawing', drawing);
 
   if (type === 'draw' && points && points.length > 0) {
-    // Broadcast the drawing data to other clients
-    socket.to(boardId).emit('drawing', drawing);
-
-    // Store the drawing data in the 'drawings' array field of the board document
+    // Optionally save incremental points if needed
+  } else if (type === 'stroke' && points && points.length > 0) {
+    // Save the entire stroke to Firestore
     try {
       const boardRef = db.collection('boards').doc(boardId);
+      const strokeRef = boardRef.collection('strokes').doc(strokeId);
 
-      // Use arrayUnion to add the new drawing to the 'drawings' array
-      await boardRef.update({
-        drawings: admin.firestore.FieldValue.arrayUnion({
-          type,
-          points,
-          stroke,
-          strokeWidth,
-          isErasing,
-          timestamp: Date.now(),
-        }),
+      await strokeRef.set({
+        strokeId,
+        stroke,
+        strokeWidth,
+        isErasing,
+        points,
+        timestamp: Date.now(),
       });
 
-      console.log("Drawing data saved successfully to drawings array.");
+      console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
     } catch (error) {
-      console.error("Failed to save drawing data to Firestore:", error);
+      console.error("Failed to save stroke to Firestore:", error);
     }
   } else if (type === 'end') {
-    // Optionally handle end of drawing if needed
-    console.log("Received end of drawing from client.");
+    console.log(`Stroke ended for strokeId: ${strokeId}`);
+    // Optional: Update stroke status in Firestore if needed
   } else {
     console.error("Invalid drawing data received:", drawing);
   }
 });
 
 
+
+
+
   // Clear drawings for a board
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
-    // Clear drawings in Firestore
-    const boardRef = db.collection('boards').doc(roomId);
-    await boardRef.set({ drawings: [] }, { merge: true }); // Clears `drawings` while keeping other fields
+  
+    const strokesRef = db.collection('boards').doc(roomId).collection('strokes');
+  
+    try {
+      const snapshot = await strokesRef.get();
+  
+      if (!snapshot.empty) {
+        snapshot.forEach((doc) => {
+          doc.ref.delete();
+        });
+      }
+  
+      console.log(`Strokes collection deleted for board ${roomId}`);
+    } catch (error) {
+      console.error(`Failed to delete strokes collection for board ${roomId}:`, error);
+    }
   });
+  
 
   socket.on('disconnect', (reason) => {
     console.log(`Client ${socket.id} disconnected due to ${reason}`);

@@ -55,90 +55,88 @@ io.on('connection', async (socket) => {
   socket.on('joinBoard', async ({ boardId }) => {
     console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
     socket.join(boardId);
-
-    // Check if the board exists in Firestore
+  
+    // Load existing strokes from Firestore
     const boardRef = db.collection('boards').doc(boardId);
-    const boardDoc = await boardRef.get();
-
-    if (!boardDoc.exists) {
-      await boardRef.set({
-        boardId: boardId,
-        createdBy: user.uid,
-        drawings: [],
-      });
-    }
-
-  // Send existing drawings for the board to the newly connected client
-  const drawings = boardDoc.data()?.drawings || [];
-  console.log("Drawings sent to client on load:", drawings); // Verify drawings data format
-  socket.emit('loadDrawings', drawings);
+    const strokesSnapshot = await boardRef.collection('strokes').get();
+  
+    const strokes = strokesSnapshot.docs.map((doc) => doc.data());
+  
+    console.log("Strokes sent to client on load:", strokes);
+  
+    // Send existing strokes to the newly connected client
+    socket.emit('loadDrawings', strokes);
   });
+  
+  
+  
 
 
-// Refined drawing storage in Firestore with simplified path structure
+// Drawing storage in Firestore with simplified path structure
 socket.on('drawing', async (data) => {
   console.log("Received data on 'drawing' event:", data);
 
-  if (!data || !data.drawing) {
-    console.error("Received drawing event with undefined data or drawing:", data);
-    return;
-  }
-
   const { boardId, drawing } = data;
+  const { type, strokeId, points, stroke, strokeWidth, isErasing } = drawing;
 
-  if (!boardId || !drawing) {
-    console.error("Received drawing event with missing boardId or drawing:", data);
-    return;
-  }
+  // Broadcast the drawing data to other clients
+  socket.to(boardId).emit('drawing', drawing);
 
-  console.log(`Received drawing from ${socket.id} on board ${boardId}:`, drawing);
+  if (type === 'draw' && points && points.length > 0) {
+    // Optionally save incremental points if needed
+  } else if (type === 'stroke' && points && points.length > 0) {
+    // Save the entire stroke to Firestore
+    try {
+      const boardRef = db.collection('boards').doc(boardId);
+      const strokeRef = boardRef.collection('strokes').doc(strokeId);
 
-  // Convert pathData to strings for Firestore compatibility
-  const sanitizedPathData = (drawing.path?.pathData || []).map((command) => {
-    // Join each inner array command as a string
-    return command.join(", ");
-  });
+      await strokeRef.set({
+        strokeId,
+        stroke,
+        strokeWidth,
+        isErasing,
+        points,
+        timestamp: Date.now(),
+      });
 
-  const sanitizedDrawing = {
-    path: {
-      left: drawing.path?.left ?? 0,
-      top: drawing.path?.top ?? 0,
-      width: drawing.path?.width ?? 0,
-      height: drawing.path?.height ?? 0,
-      pathData: sanitizedPathData,
-    },
-    stroke: drawing.stroke || '#000000',
-    strokeWidth: drawing.strokeWidth || 1,
-    timestamp: Date.now(),
-  };
-
-  // Broadcast sanitized drawing to other clients
-  socket.to(boardId).emit('drawing', sanitizedDrawing);
-
-  try {
-    const boardRef = db.collection('boards').doc(boardId);
-    await boardRef.update({
-      drawings: admin.firestore.FieldValue.arrayUnion(sanitizedDrawing),
-    });
-    console.log("Drawing saved successfully.");
-  } catch (error) {
-    console.error("Failed to save drawing to Firestore:", error);
+      console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
+    } catch (error) {
+      console.error("Failed to save stroke to Firestore:", error);
+    }
+  } else if (type === 'end') {
+    console.log(`Stroke ended for strokeId: ${strokeId}`);
+    // Optional: Update stroke status in Firestore if needed
+  } else {
+    console.error("Invalid drawing data received:", drawing);
   }
 });
 
 
 
-  
+
 
   // Clear drawings for a board
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
-
-    // Clear drawings in Firestore
-    const boardRef = db.collection('boards').doc(roomId);
-    await boardRef.set({ drawings: [] }, { merge: true }); // Clears `drawings` while keeping other fields
+  
+    const strokesRef = db.collection('boards').doc(roomId).collection('strokes');
+  
+    try {
+      const snapshot = await strokesRef.get();
+  
+      if (!snapshot.empty) {
+        snapshot.forEach((doc) => {
+          doc.ref.delete();
+        });
+      }
+  
+      console.log(`Strokes collection deleted for board ${roomId}`);
+    } catch (error) {
+      console.error(`Failed to delete strokes collection for board ${roomId}:`, error);
+    }
   });
+  
 
   socket.on('disconnect', (reason) => {
     console.log(`Client ${socket.id} disconnected due to ${reason}`);

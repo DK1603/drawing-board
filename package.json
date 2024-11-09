@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.6.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -23,7 +24,9 @@
     "uuid": "^11.0.2",
     "web-vitals": "^2.1.4",
     "y-websocket": "^2.0.4",
-    "yjs": "^13.6.20"
+    "yjs": "^13.6.20",
+    "proxy": "http://localhost:3001"
+
   },
   "scripts": {
     "start": "react-scripts start",
@@ -48,5 +51,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "proxy": "http://localhost:3001"
 }

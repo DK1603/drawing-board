@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, signOut, updateProfile } from 'firebase/auth';
 import styles from '../styles/dashboard.module.css';
-import { FaUserCircle } from 'react-icons/fa'; // Import Font Awesome icon
+import { FaUserCircle } from 'react-icons/fa';
 
 const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) => {
   const [user, setUser] = useState(null);
@@ -14,14 +14,60 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
   const auth = getAuth();
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      setUser({
-        email: currentUser.email,
-        displayName: currentUser.displayName,
-      });
-    }
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      if (currentUser) {
+        setUser({
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          uid: currentUser.uid,
+        });
+      } else {
+        setUser(null);
+      }
+    });
+  
+    // Cleanup on unmount
+    return unsubscribe;
   }, [auth]);
+  
+  
+
+  const handleCreateBoard = async () => {
+    const boardName = prompt('Enter board name');
+    if (boardName && user) {
+      try {
+        const response = await fetch('/api/createBoard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid, boardName }),
+        });
+        const { boardId } = await response.json();
+        console.log('Board created with ID:', boardId);
+        onHostNewBoard(); // Notify parent component
+      } catch (error) {
+        console.error('Error creating board:', error);
+      }
+    }
+  };
+
+  const handleJoinBoard = async (boardId) => {
+    if (boardId && user) {
+      try {
+        const response = await fetch('/api/joinBoard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid, boardId }),
+        });
+        if (response.ok) {
+          console.log('Joined board successfully');
+          navigate(`/boards/${boardId}`);
+        }
+      } catch (error) {
+        console.error('Error joining board:', error);
+      }
+    }
+  };
+  
 
   const handleSignOut = () => {
     signOut(auth)
@@ -61,7 +107,6 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
 
   return (
     <div className={styles.dashboardContainer}>
-      {/* Left Panel - Account Info */}
       <div className={styles.userInfo}>
         <FaUserCircle className={styles.userIcon} size={80} />
         <h3>Account Info</h3>
@@ -98,18 +143,14 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
         )}
       </div>
 
-      {/* Right Panel - Board Options */}
       <div className={styles.boardActions}>
         <h3>Board Management</h3>
-
-        {/* Create a New Board */}
         <div className={styles.actionSection}>
-          <button onClick={onHostNewBoard} className={styles.actionButton}>
+          <button onClick={handleCreateBoard} className={styles.actionButton}>
             Create New Board
           </button>
         </div>
 
-        {/* Existing Boards with Inline Editing */}
         <div className={styles.actionSection}>
           <h4>My Existing Boards</h4>
           <ul className={styles.boardList}>
@@ -139,7 +180,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
                       <button onClick={() => onDeleteBoard(board.id)} className={styles.deleteButton}>
                         Delete
                       </button>
-                      <button onClick={() => navigate('/boards/${board.id}')} className={styles.joinButton}>
+                      <button onClick={() => navigate(`/boards/${board.id}`)} className={styles.joinButton}>
                         Enter
                       </button>
                     </div>
@@ -150,26 +191,26 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
           </ul>
         </div>
 
-        {/* Join Another User's Board */}
         <div className={styles.actionSection}>
           <h4>Join Another User's Board</h4>
           <input
-            type="text"
-            placeholder="Enter Board ID"
-            className={styles.boardInput}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') navigate('/boards/${e.target.value}');
-            }}
-          />
-          <button 
-            onClick={() => {
-              const boardId = document.querySelector(`.${styles.boardInput}`).value;
-              navigate('/boards/${boardId}');
-            }}
-            className={styles.actionButton}
-          >
-            Join
-          </button>
+  type="text"
+  placeholder="Enter Board ID"
+  className={styles.boardInput}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter') handleJoinBoard(e.target.value);
+  }}
+/>
+<button 
+  onClick={() => {
+    const boardId = document.querySelector(`.${styles.boardInput}`).value;
+    handleJoinBoard(boardId);
+  }}
+  className={styles.actionButton}
+>
+  Join
+</button>
+
         </div>
       </div>
     </div>

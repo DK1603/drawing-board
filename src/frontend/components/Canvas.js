@@ -14,11 +14,16 @@ import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set the worker source to the path of the copied worker file
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
 
 //!!!! works
 
 // Custom hook for managing the socket connection
-const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
+const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings, onReceiveBackgroundChange) => {
   const socketRef = useRef(null);
   const auth = getAuth();
   const navigate = useNavigate();
@@ -60,6 +65,13 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
           onReceiveDrawing(drawing);
         });
 
+        // Listen for background change events
+        socketRef.current.on('changeCanvasBackground', (imageData) => {
+          console.log('Received changeCanvasBackground event');
+          onReceiveBackgroundChange(imageData);
+        });
+
+
         // Listen for canvas clear events
         socketRef.current.on('clearCanvas', ({ roomId: incomingRoomId }) => {
           console.log('Received clearCanvas event for roomId:', incomingRoomId);
@@ -88,7 +100,17 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
       socketRef.current?.disconnect();
       unsubscribe();
     };
-  }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
+  }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings, onReceiveBackgroundChange]);
+  
+  
+  // Function to emit background change event to the server
+  const emitBackgroundChange = useCallback(
+    (imageData) => {
+      console.log('Emitting changeCanvasBackground event with imageData:', imageData);
+      socketRef.current?.emit('changeCanvasBackground', { roomId, imageData });
+    },
+    [roomId]
+  );
 
   // Function to broadcast drawing data to the server
   const broadcastDrawing = useCallback(
@@ -99,14 +121,17 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
     [roomId]
   );
 
+
   // Function to notify the server to clear the canvas
   const clearCanvas = useCallback(() => {
     console.log('Emitting clearCanvas event for roomId:', roomId);
     socketRef.current?.emit('clearCanvas', { roomId });
   }, [roomId]);
 
-  return { broadcastDrawing, clearCanvas };
+  return { broadcastDrawing, clearCanvas, emitBackgroundChange };
 };
+
+
 
 // Custom hook for canvas initialization and drawing logic using Fabric.js
 const useFabricCanvas = (canvasNode, initialDrawings) => {
@@ -331,6 +356,13 @@ const Canvas = forwardRef(
 
     const [canvasNode, setCanvasNode] = useState(null); // State to store the canvas DOM node
     const navigate = useNavigate();
+    
+   
+  
+    const fileInputRef = useRef(null); // Ref for file input
+    
+
+
 
     // States for brush color, brush size, and eraser size
     const [brushColor, setBrushColor] = useState(initialBrushColor);
@@ -345,6 +377,66 @@ const Canvas = forwardRef(
       updateBrushSettings,
       setBroadcastDrawing,
     } = useFabricCanvas(canvasNode, initialDrawings);
+
+
+// Function to handle PDF file upload
+    const handleFileUpload = async (event) => {
+      const file = event.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const pdfData = new Uint8Array(reader.result);
+          const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+          const page = await pdf.getPage(1); // Render the first page
+          const viewport = page.getViewport({ scale: 1 });
+
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = viewport.width;
+          tempCanvas.height = viewport.height;
+          const tempContext = tempCanvas.getContext('2d');
+
+          await page.render({ canvasContext: tempContext, viewport }).promise;
+
+          // Convert rendered page to an image
+          const imageData = tempCanvas.toDataURL();
+
+          // You can now set this imageData as a background on your canvas
+          if (fabricCanvasRef.current) {
+            fabricCanvasRef.current.setBackgroundImage(
+              imageData,
+              fabricCanvasRef.current.renderAll.bind(fabricCanvasRef.current),
+              {
+                scaleX: fabricCanvasRef.current.width / tempCanvas.width,
+                scaleY: fabricCanvasRef.current.height / tempCanvas.height,
+              }
+            );
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        console.error('Please upload a valid PDF file.');
+      }
+    };
+
+
+
+// Function to handle receiving a background change
+  const handleReceiveBackgroundChange = (imageData) => {
+    if (fabricCanvasRef.current) {
+      const img = new Image();
+      img.src = imageData;
+      img.onload = () => {
+        fabricCanvasRef.current.setBackgroundImage(
+          img.src,
+          fabricCanvasRef.current.renderAll.bind(fabricCanvasRef.current),
+          {
+            scaleX: fabricCanvasRef.current.width / img.width,
+            scaleY: fabricCanvasRef.current.height / img.height,
+          }
+        );
+      };
+    }
+  };
 
     // Handle receiving drawing data from the server
     const handleReceiveDrawing = useCallback(
@@ -377,13 +469,14 @@ const Canvas = forwardRef(
     
     
 
-    // Initialize the socket connection
-    const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
-      roomId,
-      handleReceiveDrawing,
-      handleClearCanvas,
-      handleLoadDrawings
-    );
+  // Use the useSocket hook
+  const { emitBackgroundChange, broadcastDrawing, clearCanvas:clearSocketCanvas } = useSocket(
+    roomId,
+    handleReceiveDrawing, // Assume this is defined elsewhere
+    handleClearCanvas, // Assume this is defined elsewhere
+    handleLoadDrawings, // Assume this is defined elsewhere
+    handleReceiveBackgroundChange // Pass this function
+  );
 
     // Set the broadcastDrawing function in the canvas hook once it's available
     useEffect(() => {
@@ -445,6 +538,22 @@ const Canvas = forwardRef(
           <button className={styles.toolButton} onClick={clearSocketCanvas}>
             🗑️ Clear Canvas
           </button>
+          {/* Button to trigger file input */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={{ padding: '10px', margin: '10px' }}
+        >
+          Upload PDF
+        </button>
+        {/* Hidden file input */}
+        <input
+          type="file"
+          accept="application/pdf"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleFileUpload}
+        />
+
           <input type="text" placeholder="Desk Name" className={styles.deskNameInput} />
           <button className={styles.signOutButton} onClick={handleSignOut}>
             Sign Out

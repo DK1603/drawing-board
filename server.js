@@ -69,25 +69,34 @@ io.on('connection', (socket) => {
   socket.on('drawing', async (data) => {
     const { boardId, drawing } = data;
     const { type, strokeId, points, stroke, strokeWidth, isErasing } = drawing;
+    console.log('Received drawing data:', drawing); 
 
     socket.to(boardId).emit('drawing', drawing);
 
     if (type === 'stroke' && points?.length > 0) {
+    // Save stroke to Firestore, but do not forward to other clients
+    const boardRef = db.collection('boards').doc(boardId);
+    const strokeRef = boardRef.collection('strokes').doc(drawing.strokeId);
+
+    try {
+      await strokeRef.set({
+        ...drawing,
+        timestamp: Date.now(),
+      });
+      console.log(`Stroke saved successfully with strokeId: ${drawing.strokeId}`);
+    } catch (error) {
+      console.error('Failed to save stroke to Firestore:', error);
+    }
+    } else if (type === 'delete' && strokeId) {
+      // Handle deletion of stroke
       const boardRef = db.collection('boards').doc(boardId);
       const strokeRef = boardRef.collection('strokes').doc(strokeId);
-
+  
       try {
-        await strokeRef.set({
-          strokeId,
-          stroke,
-          strokeWidth,
-          isErasing,
-          points,
-          timestamp: Date.now(),
-        });
-        console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
+        await strokeRef.delete();
+        console.log(`Stroke deleted successfully with strokeId: ${strokeId}`);
       } catch (error) {
-        console.error("Failed to save stroke to Firestore:", error);
+        console.error('Failed to delete stroke from Firestore:', error);
       }
     } else if (type === 'end') {
       console.log(`Stroke ended for strokeId: ${strokeId}`);
@@ -103,7 +112,7 @@ io.on('connection', (socket) => {
 
     const strokesRef = db.collection('boards').doc(roomId).collection('strokes');
     const batch = db.batch();
-
+    
     try {
       const snapshot = await strokesRef.get();
       snapshot.forEach((doc) => batch.delete(doc.ref));

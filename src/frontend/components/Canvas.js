@@ -14,9 +14,6 @@ import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 
-
-//!!!! works
-
 // Custom hook for managing the socket connection
 const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   const socketRef = useRef(null);
@@ -36,6 +33,7 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
 
         // Get the current user's ID token for authentication
         const token = await user.getIdToken();
+
         // Initialize the socket connection
         socketRef.current = io('http://localhost:3001', {
           transports: ['websocket', 'polling'],
@@ -109,9 +107,32 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
 };
 
 // Custom hook for canvas initialization and drawing logic using Fabric.js
-const useFabricCanvas = (canvasNode, initialDrawings) => {
+const useFabricCanvas = (
+  canvasNode,
+  initialDrawings,
+  selectedTool,
+  eraserMode
+) => {
   const fabricCanvasRef = useRef(null); // Reference to the Fabric.js canvas instance
   const broadcastDrawingRef = useRef(null); // Reference to the broadcast function
+
+  // Refs for selectedTool and eraserMode to access the latest values in event handlers
+  const selectedToolRef = useRef(selectedTool);
+  const eraserModeRef = useRef(eraserMode);
+
+  fabric.Object.prototype.stateProperties.push('strokeId');
+
+
+  // Update refs when selectedTool or eraserMode changes
+  useEffect(() => {
+    selectedToolRef.current = selectedTool;
+  }, [selectedTool]);
+
+  useEffect(() => {
+    eraserModeRef.current = eraserMode;
+  }, [eraserMode]);
+
+  const deletedStrokeIdsRef = useRef(new Set());
 
   // Function to set the broadcastDrawingRef
   const setBroadcastDrawing = useCallback((broadcastFunc) => {
@@ -142,56 +163,88 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
   );
 
   // Function to add drawing data to the canvas
-  const ongoingStrokes = useRef({});
+  const ongoingStrokes = useRef({}); // Keep track of ongoing strokes for real-time drawing
 
   const addDrawingToCanvas = useCallback(
     (drawing) => {
-      const { strokeId, type, points, stroke, strokeWidth, isErasing } = drawing;
+      const { strokeId, type } = drawing;
   
-      if (type === 'stroke' && points && points.length > 0) {
-        // Create a new polyline with all the points
-        const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
-        const polyline = new fabric.Polyline(pointArray, {
-          stroke: isErasing ? 'white' : stroke,
-          strokeWidth,
-          fill: null,
-          selectable: false,
-          evented: false,
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-        });
-        fabricCanvasRef.current.add(polyline);
-        fabricCanvasRef.current.renderAll();
-      } else if (type === 'draw' && points && points.length > 0) {
-        // Handle real-time drawing updates
+      if (!strokeId) {
+        console.warn('Received drawing without strokeId:', drawing);
+        return;
+      }
+  
+      if (type === 'draw') {
+        // Handle real-time drawing updates with temporary strokes
+        const { points, stroke, strokeWidth, isErasing } = drawing;
+        if (points && points.length > 0) {
+          let polyline = ongoingStrokes.current[strokeId];
+          if (!polyline) {
+            // Create a new temporary polyline
+            polyline = new fabric.Polyline([], {
+              stroke: isErasing ? 'white' : stroke,
+              strokeWidth,
+              fill: null,
+              selectable: false,
+              evented: false, // Temporary strokes are not evented
+              strokeLineCap: 'round',
+              strokeLineJoin: 'round',
+            });
+            polyline.strokeId = strokeId;
+            ongoingStrokes.current[strokeId] = polyline;
+            fabricCanvasRef.current.add(polyline);
+          }
+  
+          // Append new points to the polyline
+          const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
+          polyline.points = polyline.points.concat(newPoints);
+  
+          // Update object's coordinates
+          polyline.setCoords();
+  
+          // Mark the object as dirty and request a render
+          polyline.set({
+            dirty: true,
+            objectCaching: false,
+          });
+          fabricCanvasRef.current.requestRenderAll();
+        }
+      } else if (type === 'stroke') {
+        // Finalize the stroke by replacing the temporary stroke
+        const { points, stroke, strokeWidth, isErasing } = drawing;
+  
         let polyline = ongoingStrokes.current[strokeId];
-        if (!polyline) {
-          // Create a new polyline
-          polyline = new fabric.Polyline([], {
+        if (polyline) {
+          // Remove the temporary stroke
+          fabricCanvasRef.current.remove(polyline);
+          delete ongoingStrokes.current[strokeId];
+        }
+  
+        if (points && points.length > 0) {
+          const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
+          const finalizedPolyline = new fabric.Polyline(pointArray, {
             stroke: isErasing ? 'white' : stroke,
             strokeWidth,
             fill: null,
             selectable: false,
-            evented: false,
+            evented: true, // Finalized strokes are evented
             strokeLineCap: 'round',
             strokeLineJoin: 'round',
           });
-          ongoingStrokes.current[strokeId] = polyline;
-          fabricCanvasRef.current.add(polyline);
+          finalizedPolyline.strokeId = strokeId;
+          fabricCanvasRef.current.add(finalizedPolyline);
+          fabricCanvasRef.current.renderAll();
         }
+      } else if (type === 'delete') {
+        // Handle deletion of stroke
+        console.log('Received delete event for strokeId:', strokeId);
+        const objects = fabricCanvasRef.current.getObjects();
+        const target = objects.find((obj) => obj.strokeId === strokeId);
   
-        // Append new points to the polyline
-        const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
-        polyline.points = polyline.points.concat(newPoints);
-  
-        polyline.set({
-          dirty: true,
-          objectCaching: false,
-        });
-        fabricCanvasRef.current.renderAll();
-      } else if (type === 'end') {
-        // Stroke ended; remove from ongoing strokes
-        delete ongoingStrokes.current[strokeId];
+        if (target) {
+          fabricCanvasRef.current.remove(target);
+          fabricCanvasRef.current.renderAll();
+        }
       } else {
         console.warn('Invalid drawing data received:', drawing);
       }
@@ -199,13 +252,45 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
     [fabricCanvasRef]
   );
   
-
+  
 
   // Function to clear the canvas
   const clearCanvas = useCallback(() => {
     console.log('Clearing canvas');
     fabricCanvasRef.current?.clear().renderAll();
   }, []);
+
+  // Function to update canvas properties based on the selected tool
+  const updateCanvasProperties = useCallback(() => {
+    if (fabricCanvasRef.current) {
+      const tool = selectedToolRef.current;
+      const eMode = eraserModeRef.current;
+
+      if (tool === 'brush') {
+        fabricCanvasRef.current.isDrawingMode = true;
+        fabricCanvasRef.current.selection = false; // Disable selection
+        fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
+      } else if (tool === 'eraser') {
+        if (eMode === 'whiteEraser') {
+          fabricCanvasRef.current.isDrawingMode = true;
+          fabricCanvasRef.current.selection = false; // Disable selection
+          fabricCanvasRef.current.defaultCursor = 'crosshair'; // Eraser cursor
+        } else if (eMode === 'strokeEraser') {
+          fabricCanvasRef.current.isDrawingMode = false;
+          fabricCanvasRef.current.selection = false; // Disable selection
+          fabricCanvasRef.current.defaultCursor = 'not-allowed'; // Eraser cursor
+        }
+      } else {
+        fabricCanvasRef.current.isDrawingMode = false;
+        fabricCanvasRef.current.selection = false; // Disable selection
+        fabricCanvasRef.current.defaultCursor = 'default'; // Default cursor
+      }
+    }
+  }, []);
+
+useEffect(() => {
+  updateCanvasProperties();
+}, [selectedTool, eraserMode, updateCanvasProperties]);
 
   // Initialize the Fabric.js canvas and set up event handlers
   useEffect(() => {
@@ -228,46 +313,100 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
       // Mouse down event
       fabricCanvasRef.current.on('mouse:down', (opt) => {
         console.log('mouse:down event fired');
-        const pointer = fabricCanvasRef.current.getPointer(opt.e);
-        collectedPoints = [{ x: pointer.x, y: pointer.y }];
-        const timestamp = Date.now();
+        const tool = selectedToolRef.current;
+        const eMode = eraserModeRef.current;
 
-        currentStrokeId = `${timestamp}_${uuidv4()}`;
+        if (tool === 'brush') {
+          // Start a new stroke
+          const pointer = fabricCanvasRef.current.getPointer(opt.e);
+          collectedPoints = [{ x: pointer.x, y: pointer.y }];
+          const timestamp = Date.now();
+
+          currentStrokeId = `${timestamp}_${uuidv4()}`;
+        } else if (tool === 'eraser') {
+          if (eMode === 'whiteEraser') {
+            // Start erasing with white color
+            const pointer = fabricCanvasRef.current.getPointer(opt.e);
+            collectedPoints = [{ x: pointer.x, y: pointer.y }];
+            const timestamp = Date.now();
+
+            currentStrokeId = `${timestamp}_${uuidv4()}`;
+          } else if (eMode === 'strokeEraser') {
+            // Initialize the set of deleted strokes
+            deletedStrokeIdsRef.current = new Set();
+          }
+        }
       });
 
       // Mouse move event
       fabricCanvasRef.current.on('mouse:move', (opt) => {
         if (opt.e.buttons !== 1) return; // Only when mouse button is pressed
-        console.log('mouse:move event fired');
-        const pointer = fabricCanvasRef.current.getPointer(opt.e);
-        collectedPoints.push({ x: pointer.x, y: pointer.y });
+        const tool = selectedToolRef.current;
+        const eMode = eraserModeRef.current;
 
-        const now = Date.now();
-        //sends data every 0.1 s
-        if (now - lastSentTime >= 8) {
-          lastSentTime = now;
+        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
+          console.log('mouse:move event fired');
+          const pointer = fabricCanvasRef.current.getPointer(opt.e);
+          collectedPoints.push({ x: pointer.x, y: pointer.y });
 
-          const drawingData = {
-            strokeId: currentStrokeId,
-            type: 'draw',
-            points: [pointer], // Send the latest point
-            stroke: fabricCanvasRef.current.freeDrawingBrush.color,
-            strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
-            isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
-          };
+          const now = Date.now();
+          // Sends data every 16 ms
+          if (now - lastSentTime >= 16) {
+            lastSentTime = now;
 
-          console.log('Broadcasting drawing data:', drawingData);
+            const drawingData = {
+              strokeId: currentStrokeId,
+              type: 'draw',
+              points: [pointer], // Send the latest point
+              stroke: fabricCanvasRef.current.freeDrawingBrush.color,
+              strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
+              isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
+            };
 
-          // Broadcast the drawing data
-          if (broadcastDrawingRef.current && collectedPoints.length > 0) {
-            broadcastDrawingRef.current(drawingData);
+            console.log('Broadcasting drawing data:', drawingData);
+
+            // Broadcast the drawing data
+            if (broadcastDrawingRef.current && collectedPoints.length > 0) {
+              broadcastDrawingRef.current(drawingData);
+            }
+          }
+        } else if (tool === 'eraser' && eMode === 'strokeEraser') {
+          // Erase strokes as the cursor moves over them
+          const event = opt.e;
+          const target = fabricCanvasRef.current.findTarget(event, true);
+          if(target){
+            console.log("FOUND THIS STROKE!!!", target.strokleId ,target);
+          }
+          if (target && !deletedStrokeIdsRef.current.has(target.strokeId)) {
+            // Remove the stroke from the canvas
+            console.log('Erasing stroke with strokeId:', target.strokeId);
+            fabricCanvasRef.current.remove(target);
+            fabricCanvasRef.current.renderAll();
+
+            // Broadcast deletion to other clients
+            if (broadcastDrawingRef.current) {
+              broadcastDrawingRef.current({
+                type: 'delete',
+                strokeId: target.strokeId,
+              });
+            }
+
+            // Add the strokeId to the set to prevent duplicate deletions
+            deletedStrokeIdsRef.current.add(target.strokeId);
+          }
+          else{
+            console.warn('No strokeId found on target object:', target);
           }
         }
       });
 
-        // Mouse up event
-        fabricCanvasRef.current.on('mouse:up', () => {
-          console.log('mouse:up event fired');
+      // Mouse up event
+      fabricCanvasRef.current.on('mouse:up', () => {
+        console.log('mouse:up event fired');
+        const tool = selectedToolRef.current;
+        const eMode = eraserModeRef.current;
+
+        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
           if (broadcastDrawingRef.current) {
             // Send the entire stroke to the server for saving
             const strokeData = {
@@ -278,14 +417,23 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
               strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
               isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
             };
-        
+
             broadcastDrawingRef.current(strokeData);
           }
           collectedPoints = [];
           currentStrokeId = null;
-        });
-        
-        
+        } else if (tool === 'eraser' && eMode === 'strokeEraser') {
+          // Clear the set of deleted strokes
+          deletedStrokeIdsRef.current.clear();
+        }
+      });
+
+      // After the 'mouse:up' event handler
+      fabricCanvasRef.current.on('path:created', (opt) => {
+        const path = opt.path;
+        path.strokeId = currentStrokeId; // Assign the current strokeId to the path
+        console.log('path:created, assigned strokeId:', currentStrokeId, 'to path:', path);
+      });
 
 
       // Load any initial drawings onto the canvas
@@ -299,6 +447,8 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
         fabricCanvasRef.current.off('mouse:down');
         fabricCanvasRef.current.off('mouse:move');
         fabricCanvasRef.current.off('mouse:up');
+          fabricCanvasRef.current.off('path:created');
+
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
         console.log('Fabric.js canvas disposed');
@@ -308,7 +458,13 @@ const useFabricCanvas = (canvasNode, initialDrawings) => {
         console.warn('Canvas DOM element is not available');
       }
     }
-  }, [canvasNode, initialDrawings, addDrawingToCanvas, updateBrushSettings]);
+  }, [
+    canvasNode,
+    initialDrawings,
+    addDrawingToCanvas,
+    updateBrushSettings,
+  ]);
+
 
   return {
     fabricCanvasRef,
@@ -325,7 +481,6 @@ const Canvas = forwardRef(
     { roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },
     ref
   ) => {
-    const [isErasing, setIsErasing] = useState(false); // State to track eraser mode
     const [isLoading, setIsLoading] = useState(true); // State to track loading status
     const [initialDrawings, setInitialDrawings] = useState([]); // State for initial drawings
 
@@ -337,6 +492,11 @@ const Canvas = forwardRef(
     const [brushSize, setBrushSize] = useState(initialBrushSize);
     const [eraserSize, setEraserSize] = useState(10); // Default eraser size
 
+    // State variables for tool selection
+    const [selectedTool, setSelectedTool] = useState('brush'); // 'brush', 'eraser'
+    const [isEraserOptionsVisible, setIsEraserOptionsVisible] = useState(false);
+    const [eraserMode, setEraserMode] = useState('none'); // 'none', 'whiteEraser', 'strokeEraser'
+
     // Initialize the canvas and get drawing functions
     const {
       fabricCanvasRef,
@@ -344,7 +504,7 @@ const Canvas = forwardRef(
       addDrawingToCanvas,
       updateBrushSettings,
       setBroadcastDrawing,
-    } = useFabricCanvas(canvasNode, initialDrawings);
+    } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode);
 
     // Handle receiving drawing data from the server
     const handleReceiveDrawing = useCallback(
@@ -368,14 +528,12 @@ const Canvas = forwardRef(
         strokes.forEach((stroke) => {
           addDrawingToCanvas({
             ...stroke,
-            type: 'stroke', // Ensure type is 'stroke' for loaded strokes
+            type: stroke.type || 'stroke', // Ensure type is 'stroke' for loaded strokes
           });
         });
       },
       [addDrawingToCanvas]
     );
-    
-    
 
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
@@ -397,9 +555,22 @@ const Canvas = forwardRef(
 
     // Update brush settings whenever relevant states change
     useEffect(() => {
-      const size = isErasing ? eraserSize : brushSize;
-      updateBrushSettings(brushColor, size, isErasing);
-    }, [brushColor, brushSize, eraserSize, isErasing, updateBrushSettings]);
+      if (selectedTool === 'brush') {
+        updateBrushSettings(brushColor, brushSize, false);
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.isDrawingMode = true;
+        }
+      } else if (selectedTool === 'eraser' && eraserMode === 'whiteEraser') {
+        updateBrushSettings('white', eraserSize, true);
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.isDrawingMode = true;
+        }
+      } else {
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.isDrawingMode = false;
+        }
+      }
+    }, [selectedTool, eraserMode, brushColor, brushSize, eraserSize, updateBrushSettings, fabricCanvasRef]);
 
     // Expose the clearCanvas function to parent components via ref
     useImperativeHandle(ref, () => ({
@@ -416,17 +587,6 @@ const Canvas = forwardRef(
         .catch((error) => console.error('Error signing out:', error));
     };
 
-    // Toggle between eraser and brush modes
-    const handleEraserToggle = () => {
-      setIsErasing((prev) => {
-        const newIsErasing = !prev;
-        console.log('Toggling eraser mode:', newIsErasing);
-        const size = newIsErasing ? eraserSize : brushSize;
-        updateBrushSettings(brushColor, size, newIsErasing);
-        return newIsErasing;
-      });
-    };
-
     // Set loading to false once the component is mounted
     useEffect(() => {
       setIsLoading(false);
@@ -439,13 +599,71 @@ const Canvas = forwardRef(
       <div className={styles.boardContainer}>
         {/* Toolbar */}
         <div className={styles.toolbar}>
-          <button className={styles.toolButton} onClick={handleEraserToggle}>
-            {isErasing ? '✏️ Brush' : '🧽 Eraser'} {/* Toggle icon for eraser/brush */}
+          {/* Brush Button */}
+          <button
+            className={`${styles.toolButton} ${selectedTool === 'brush' ? styles.activeTool : ''}`}
+            onClick={() => {
+              setSelectedTool('brush');
+              setEraserMode('none'); // Reset eraser mode
+              console.log('Brush tool selected');
+            }}
+          >
+            ✏️ Brush
           </button>
-          <button className={styles.toolButton} onClick={clearSocketCanvas}>
+
+          {/* Eraser Button */}
+          <button
+            className={`${styles.toolButton} ${selectedTool === 'eraser' ? styles.activeTool : ''}`}
+            onClick={() => {
+              setSelectedTool('eraser');
+              setIsEraserOptionsVisible(!isEraserOptionsVisible);
+              console.log('Eraser tool selected');
+            }}
+          >
+            🧽 Eraser
+          </button>
+
+          {/* Eraser Options */}
+          {isEraserOptionsVisible && selectedTool === 'eraser' && (
+            <div className={styles.eraserOptions}>
+              <button
+                className={styles.toolButton}
+                onClick={() => {
+                  setEraserMode('whiteEraser');
+                  setIsEraserOptionsVisible(false);
+                  console.log('White Eraser mode selected');
+                }}
+              >
+                White Eraser
+              </button>
+              <button
+                className={styles.toolButton}
+                onClick={() => {
+                  setEraserMode('strokeEraser');
+                  setIsEraserOptionsVisible(false);
+                  console.log('Stroke Eraser mode selected');
+                }}
+              >
+                Stroke Eraser
+              </button>
+            </div>
+          )}
+
+          {/* Clear Canvas Button */}
+          <button
+            className={styles.toolButton}
+            onClick={() => {
+              clearSocketCanvas();
+              console.log('Clear Canvas button clicked');
+            }}
+          >
             🗑️ Clear Canvas
           </button>
+
+          {/* Desk Name Input */}
           <input type="text" placeholder="Desk Name" className={styles.deskNameInput} />
+
+          {/* Sign Out Button */}
           <button className={styles.signOutButton} onClick={handleSignOut}>
             Sign Out
           </button>
@@ -515,7 +733,7 @@ const Canvas = forwardRef(
               }}
               className={styles.slider}
             />
-            <label className={styles.sliderLabel}></label>
+            <label className={styles.sliderLabel}>Eraser Size</label>
           </div>
         </div>
 

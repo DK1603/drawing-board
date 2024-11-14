@@ -8,11 +8,18 @@ import React, {
   useCallback,
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useNavigate } from 'react-router-dom';
+import { unstable_usePrompt, useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric'; // Fabric.js library for canvas manipulation
 import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
+
+import { Document, Page, pdfjs } from 'react-pdf/dist/esm/entry.webpack';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
 
 // Custom hook for managing the socket connection
 const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
@@ -167,11 +174,44 @@ const useFabricCanvas = (
 
   const addDrawingToCanvas = useCallback(
     (drawing) => {
-      const { strokeId, type } = drawing;
+      const { strokeId, type, imageData, left, top, scaleX, scaleY } = drawing;
   
       if (!strokeId) {
         console.warn('Received drawing without strokeId:', drawing);
         return;
+      }
+
+      if (type === 'Image') {
+        // Check if image with strokeId already exists
+        let existingImage = fabricCanvasRef.current
+          .getObjects()
+          .find((obj) => obj.strokeId === strokeId);
+  
+        if (existingImage) {
+          // Update position and scale of the existing image
+          existingImage.set({
+            left: left || existingImage.left,
+            top: top || existingImage.top,
+            scaleX: scaleX || existingImage.scaleX,
+            scaleY: scaleY || existingImage.scaleY,
+          });
+          existingImage.setCoords();
+          fabricCanvasRef.current.renderAll();
+        } else {
+          // If the image does not exist, add it
+          fabric.Image.fromURL(imageData, (img) => {
+            img.set({
+              left,
+              top,
+              scaleX,
+              scaleY,
+              strokeId,
+              selectable: true,
+            });
+            fabricCanvasRef.current.add(img);
+            fabricCanvasRef.current.renderAll();
+          });
+        }
       }
   
       if (type === 'draw') {
@@ -344,7 +384,7 @@ useEffect(() => {
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
 
-        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
+        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser') && tool !== 'resizeMode') {
           console.log('mouse:move event fired');
           const pointer = fabricCanvasRef.current.getPointer(opt.e);
           collectedPoints.push({ x: pointer.x, y: pointer.y });
@@ -477,10 +517,7 @@ useEffect(() => {
 
 // Main Canvas component
 const Canvas = forwardRef(
-  (
-    { roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },
-    ref
-  ) => {
+  ({ roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },ref) => {
     const [isLoading, setIsLoading] = useState(true); // State to track loading status
     const [initialDrawings, setInitialDrawings] = useState([]); // State for initial drawings
 
@@ -497,6 +534,232 @@ const Canvas = forwardRef(
     const [isEraserOptionsVisible, setIsEraserOptionsVisible] = useState(false);
     const [eraserMode, setEraserMode] = useState('none'); // 'none', 'whiteEraser', 'strokeEraser'
 
+    const [selectedPdf, setSelectedPdf] = useState(null);
+    const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
+    const [numPages, setNumPages] = useState(null);
+
+
+    const fileInputRef = useRef(null);
+
+    // State for upload menu
+   const [isUploadMenuVisible, setIsUploadMenuVisible] = useState(false);
+
+    // State for files modal
+    const [uploadedFiles, setUploadedFiles] = useState([]);
+    const [isFilesModalVisible, setIsFilesModalVisible] = useState(false);
+
+    const toggleUploadMenu = () => {
+      setIsUploadMenuVisible(!isUploadMenuVisible);
+    };
+    
+    const handleUploadButtonClick = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      } else {
+        console.error('File input ref is null.');
+      }
+    };
+
+    // Function to handle file selection durint upload
+    const handleFileSelect = async (event) => {
+      const file = event.target.files[0];
+        if (file) {
+          // Validate file type
+          if (file.type !== 'application/pdf') {
+            console.error('Invalid file type. Please upload a PDF file.');
+            return;
+          }
+    
+          // Validate file size (e.g., 10MB limit)
+          const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+          if (file.size > MAX_FILE_SIZE) {
+            console.error('File size exceeds the maximum limit of 10MB.');
+            return;
+          }
+    
+          // Proceed to upload the file
+          await uploadPdfFile(file);
+        }
+    };
+
+    // During browsing after upload
+    const handleFileSelection = async (file) => {
+      setIsFilesModalVisible(false); // Close the files modal
+    
+      // Fetch the download URL from Firebase Storage
+      const storage = getStorage();
+      const fileRef = storageRef(storage, `pdfs/${file.formattedFilename}`);
+    
+      try {
+        const downloadURL = await getDownloadURL(fileRef);
+        // Set the selected file and its URL in state
+        setSelectedPdf({ ...file, url: downloadURL });
+        setIsPdfPreviewVisible(true); // Show the PDF preview side menu
+      } catch (error) {
+        console.error('Error getting download URL:', error);
+        // Handle errors (e.g., show a notification to the user)
+      }
+    };
+    
+    const handleBrowseFiles = async () => {
+      const firestore = getFirestore();
+      const filesCollectionRef = collection(firestore, 'boards', roomId, 'files');
+
+      try {
+        const querySnapshot = await getDocs(filesCollectionRef);
+        const files = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          files.push({
+            originalFilename: data.originalFilename,
+            formattedFilename: data.formattedFilename,
+            uploadedAt: data.uploadedAt.toDate(),
+          });
+        });
+
+        setUploadedFiles(files);
+        setIsFilesModalVisible(true); // Show the modal with the files
+
+      } catch (error) {
+        console.error('Error fetching files:', error);
+        // Handle errors (e.g., show a notification to the user)
+      }
+    };
+      
+    const uploadPdfFile = async (file) => {
+      const storage = getStorage();
+      const timestamp = Date.now();
+      const filename = file.name;
+      const formattedFilename = `${timestamp}_${roomId}_${filename}`;
+      const filePath = `pdfs/${formattedFilename}`; // Storing in 'pdfs' folder
+    
+      // Create a storage reference
+      const fileRef = storageRef(storage, filePath);
+    
+      try {
+        // Upload the file
+        await uploadBytes(fileRef, file);
+        console.log('File uploaded successfully:', filePath);
+    
+        // Proceed to update Firestore
+        await saveFileMetadataToFirestore(formattedFilename, filename);
+    
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        // Handle errors (e.g., show a notification to the user)
+      }
+    };
+
+    const saveFileMetadataToFirestore = async (formattedFilename, originalFilename) => {
+      const firestore = getFirestore();
+      const auth = getAuth();
+    
+      const fileData = {
+        originalFilename,
+        formattedFilename,
+        uploadedAt: new Date(),
+        uploaderId: auth.currentUser.uid,
+      };
+    
+      try {
+        // Reference to the 'files' collection under the specific board
+        const filesCollectionRef = collection(firestore, 'boards', roomId, 'files');
+    
+        // Use the formatted filename as the document ID
+        await setDoc(doc(filesCollectionRef, formattedFilename), fileData);
+    
+        console.log('File metadata saved to Firestore');
+    
+      } catch (error) {
+        console.error('Error saving file metadata to Firestore:', error);
+        // Handle errors (e.g., show a notification to the user)
+      }
+    };
+
+    const [previousTool, setPreviousTool] = useState(null);
+
+    const handlePageDoubleClick = async (pageNumber) => {
+      setPreviousTool(selectedTool); // Save the current tool mode
+      setSelectedTool("resizeMode"); // Switch to resize mode
+      let resizeComplete = false; // Track if resizing is complete
+    
+      try {
+        const loadingTask = pdfjs.getDocument(selectedPdf.url);
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        await page.render({ canvasContext: context, viewport }).promise;
+        const imageData = canvas.toDataURL("image/png");
+    
+        fabric.Image.fromURL(imageData, (img) => {
+          img.scale(0.2);
+          img.set({
+            left: (fabricCanvasRef.current.width - img.width * img.scaleX) / 2,
+            top: (fabricCanvasRef.current.height - img.height * img.scaleY) / 2,
+            selectable: true,
+            hasControls: true,
+            hasBorders: true,
+          });
+    
+          // Add the image to the canvas
+          fabricCanvasRef.current.add(img);
+          fabricCanvasRef.current.setActiveObject(img);
+          img.bringToFront();
+    
+          const broadcastFinalState = () => {
+            const modifiedState = {
+              left: img.left,
+              top: img.top,
+              scaleX: img.scaleX,
+              scaleY: img.scaleY,
+            };
+    
+            const uniqueId = `${Date.now()}_${uuidv4()}`;
+            console.log("Unique id of the image: ", uniqueId);
+    
+            if (broadcastDrawing) {
+              broadcastDrawing({
+                type: 'Image',
+                strokeId: uniqueId,
+                imageData: imageData,
+                ...modifiedState,
+              });
+            }
+    
+            // Save to Firestore
+            const imageDoc = doc(getFirestore(), `boards/${roomId}/images`, uniqueId);
+            setDoc(imageDoc, {
+              type: 'image',
+              strokeId: uniqueId,
+              imageData,
+              ...modifiedState,
+            }).then(() => {
+              console.log("Image saved to Firestore.");
+            }).catch((error) => {
+              console.error("Error saving image to Firestore:", error);
+            });
+          };
+    
+          // Listen for the mouse down event outside the image to finalize state
+          fabricCanvasRef.current.on("mouse:down", (e) => {
+            if (e.target !== img && !resizeComplete) {
+              resizeComplete = true; // Mark resize as complete
+              broadcastFinalState();
+              setSelectedTool(previousTool || "brush"); // Only reset tool if resize is complete
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error adding page to canvas:", error);
+      }
+    };
+    
+ 
+    
     // Initialize the canvas and get drawing functions
     const {
       fabricCanvasRef,
@@ -506,6 +769,7 @@ const Canvas = forwardRef(
       setBroadcastDrawing,
     } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode);
 
+    
     // Handle receiving drawing data from the server
     const handleReceiveDrawing = useCallback(
       (drawing) => {
@@ -535,6 +799,28 @@ const Canvas = forwardRef(
       [addDrawingToCanvas]
     );
 
+    const fetchImagesFromFirestore = async () => {
+      const firestore = getFirestore();
+      const imagesCollectionRef = collection(firestore, `boards/${roomId}/images`);
+    
+      try {
+        const querySnapshot = await getDocs(imagesCollectionRef);
+        const images = [];
+        querySnapshot.forEach((doc) => {
+          images.push(doc.data());
+        });
+    
+        images.forEach((imageData) => {
+          addDrawingToCanvas({
+            ...imageData,
+            type: 'Image', // Ensure the type is set to 'Image' for proper rendering
+          });
+        });
+      } catch (error) {
+        console.error('Error fetching images from Firestore:', error);
+      }
+    };
+    
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
       roomId,
@@ -591,6 +877,8 @@ const Canvas = forwardRef(
     useEffect(() => {
       setIsLoading(false);
       console.log('Canvas component mounted');
+      fetchImagesFromFirestore(); // Load images from Firestore on page load
+
     }, []);
 
     if (isLoading) return <div>Loading canvas...</div>;
@@ -659,7 +947,70 @@ const Canvas = forwardRef(
           >
             🗑️ Clear Canvas
           </button>
+          
+          {/* Upload PDF Button */}
+          <div className={styles.uploadWrapper}>
+            <button className={styles.toolButton} onClick={toggleUploadMenu}>
+              📄 Upload PDF
+            </button>
 
+            {isUploadMenuVisible && (
+              <div className={styles.uploadMenu}>
+                <button
+                  className={styles.menuItem}
+                  onClick={() => {
+                    handleUploadButtonClick();
+                    setIsUploadMenuVisible(false);
+                  }}
+                >
+                  Upload New File
+                </button>
+                <button
+                  className={styles.menuItem}
+                  onClick={() => {
+                    // Call function to display existing files
+                    handleBrowseFiles();
+                    setIsUploadMenuVisible(false);
+                  }}
+                >
+                  Browse Existing Files
+                </button>
+              </div>
+            )}
+            {/* Files Modal */}
+            {isFilesModalVisible && (
+            <div className={styles.modalOverlay}>
+              <div className={styles.modalContent}>
+                <h2>Uploaded Files</h2>
+                <ul className={styles.fileList}>
+                  {uploadedFiles.map((file, index) => (
+                    <li
+                      key={index}
+                      className={styles.fileItem}
+                      onClick={() => handleFileSelection(file)}
+                    >
+                      {file.originalFilename}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={styles.closeButton}
+                  onClick={() => setIsFilesModalVisible(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+          </div>
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            accept=".pdf"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
           {/* Desk Name Input */}
           <input type="text" placeholder="Desk Name" className={styles.deskNameInput} />
 
@@ -668,7 +1019,37 @@ const Canvas = forwardRef(
             Sign Out
           </button>
         </div>
-
+          {/* PDF Preview Side Menu */}
+          {isPdfPreviewVisible && selectedPdf && (
+            <div className={styles.pdfPreview}>
+              <div className={styles.previewHeader}>
+                <h2>{selectedPdf.originalFilename}</h2>
+                <button
+                  className={styles.closeButton}
+                  onClick={() => setIsPdfPreviewVisible(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className={styles.pdfPages}>
+                <Document
+                  file={selectedPdf.url}
+                  onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                >
+                  {Array.from(new Array(numPages), (el, index) => (
+                    <Page
+                      key={`page_${index + 1}`}
+                      pageNumber={index + 1}
+                      width={450}
+                      onClick={() => console.log(`Page ${index + 1} clicked`)}
+                      onDoubleClick={() => handlePageDoubleClick(index + 1)}
+                      className={styles.pdfPage}
+                    />
+                  ))}
+                </Document>
+              </div>
+            </div>
+          )}
         {/* Canvas Wrapper */}
         <div className={styles.canvasWrapper}>
           <canvas

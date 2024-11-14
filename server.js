@@ -73,11 +73,29 @@ io.on('connection', (socket) => {
 
     socket.to(boardId).emit('drawing', drawing);
 
+    if (type === 'Image') {
+      try {
+        const boardRef = db.collection('boards').doc(boardId);
+        const imageDoc = boardRef.collection('images').doc(strokeId);
+  
+        await imageDoc.set({
+          imageData,
+          left,
+          top,
+          scaleX,
+          scaleY,
+          timestamp: Date.now(),
+        });
+        console.log(`Image saved successfully with strokeId: ${strokeId}`);
+      } catch (error) {
+        console.error('Failed to save image to Firestore:', error);
+      }
+    }
+
     if (type === 'stroke' && points?.length > 0) {
     // Save stroke to Firestore, but do not forward to other clients
     const boardRef = db.collection('boards').doc(boardId);
-    const strokeRef = boardRef.collection('strokes').doc(drawing.strokeId);
-
+    const strokeRef = boardRef.collection('strokes').doc(drawing.strokeId);    
     try {
       await strokeRef.set({
         ...drawing,
@@ -109,19 +127,31 @@ io.on('connection', (socket) => {
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
-
+  
     const strokesRef = db.collection('boards').doc(roomId).collection('strokes');
+    const imagesRef = db.collection('boards').doc(roomId).collection('images');
     const batch = db.batch();
-    
+  
     try {
-      const snapshot = await strokesRef.get();
-      snapshot.forEach((doc) => batch.delete(doc.ref));
+      // Delete strokes
+      const strokesSnapshot = await strokesRef.get();
+      strokesSnapshot.forEach((doc) => batch.delete(doc.ref));
+      console.log(`Strokes collection added to batch deletion for board ${roomId}`);
+  
+      // Delete images
+      const imagesSnapshot = await imagesRef.get();
+      imagesSnapshot.forEach((doc) => batch.delete(doc.ref));
+      console.log(`Images collection added to batch deletion for board ${roomId}`);
+  
+      // Commit batch
       await batch.commit();
-      console.log(`Strokes collection deleted for board ${roomId}`);
+      console.log(`Strokes and images collections deleted for board ${roomId}`);
+      
     } catch (error) {
-      console.error(`Failed to delete strokes collection for board ${roomId}:`, error);
+      console.error(`Failed to delete strokes or images collection for board ${roomId}:`, error);
     }
   });
+  
 
   socket.on('disconnect', (reason) => {
     console.log(`Client ${socket.id} disconnected due to ${reason}`);

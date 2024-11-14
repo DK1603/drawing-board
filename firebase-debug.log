@@ -1,0 +1,14 @@
+[debug] [2024-11-14T07:34:12.691Z] ----------------------------------------------------------------------
+[debug] [2024-11-14T07:34:12.693Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Никита\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js use --add
+[debug] [2024-11-14T07:34:12.694Z] CLI Version:   13.25.0
+[debug] [2024-11-14T07:34:12.694Z] Platform:      win32
+[debug] [2024-11-14T07:34:12.694Z] Node Version:  v20.18.0
+[debug] [2024-11-14T07:34:12.694Z] Time:          Thu Nov 14 2024 16:34:12 GMT+0900 (Корея, стандартное время)
+[debug] [2024-11-14T07:34:12.694Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2024-11-14T07:34:12.699Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2024-11-14T07:34:12.700Z] > authorizing via signed-in user (dezgun501@gmail.com)
+[error] 
+[error] Error: firebase use must be run from a Firebase project directory.
+
+Run firebase init to start a project directory in the current folder.

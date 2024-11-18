@@ -17,6 +17,7 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
 
 import Chatbot from './Chatbot';
+import { sendExternalMessage } from './Chatbot';
 import Tesseract from 'tesseract.js';
 
 import { Document, Page, pdfjs } from 'react-pdf/dist/esm/entry.webpack';
@@ -539,16 +540,36 @@ useEffect(() => {
 
 
 
-const useCaptureAndProcessCanvasArea = (fabricCanvasRef) => {
-  const [captureMode, setCaptureMode] = useState(false);
+const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
   let isSelecting = false;
   let selectionRect;
   let startPointer;
+  
+  useEffect(() => {
+  if (captureMode && selectionRect) {
+    // Remove the selection rectangle from the canvas
+    fabricCanvasRef.current?.remove(selectionRect);
+    selectionRect = null; // Reset the rectangle reference
+    isSelecting = false; // Reset selection state
+  }
+}, [captureMode]);
 
   useEffect(() => {
-    if (!fabricCanvasRef.current) return;
+  if (!fabricCanvasRef.current) return;
 
-    const canvas = fabricCanvasRef.current;
+  const canvas = fabricCanvasRef.current;
+
+  if (captureMode) {
+    canvas.isDrawingMode = false; // Disable drawing when capture mode is on
+  } else {
+    canvas.isDrawingMode = true; // Re-enable drawing when capture mode is off
+    // Optionally clear any active selection rectangle
+    if (selectionRect) {
+      canvas.remove(selectionRect);
+      selectionRect = null;
+    }
+    isSelecting = false;
+  }
 
     // Mouse down event
     const handleMouseDown = (options) => {
@@ -615,15 +636,45 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef) => {
 
       const imageDataURL = tempCanvas.toDataURL();
 
-      try {
-        const result = await Tesseract.recognize(imageDataURL, 'eng', {
-          logger: (m) => console.log(m),
-        });
-        console.log('OCR Result:', result.data.text);
-        alert('OCR Result: ' + result.data.text);
-      } catch (error) {
-        console.error('Error processing OCR:', error);
-      }
+     /* try {
+  const result = await Tesseract.recognize(imageDataURL, 'eng', {
+    logger: (m) => console.log(m), // Optional: log progress
+  });
+
+  // Store OCR result in a variable
+  const ocrText = result.data.text;
+
+  // Log and optionally display it
+  console.log('OCR Result:', ocrText);
+  alert('OCR Result: ' + ocrText);
+
+  // Use ocrText for further processing, e.g., sending it to a ChatGPT API function
+  // Example: sendToChatbot(ocrText);
+} catch (error) {
+  console.error('Error processing OCR:', error);
+}*/
+
+
+try {
+  const result = await Tesseract.recognize(imageDataURL, 'eng', {
+    logger: (m) => console.log(m),
+  });
+  const ocrText = result.data.text; // Store OCR result in a variable
+  console.log('OCR Result:', ocrText);
+
+  const userProvidedText = prompt("Add any extra information you'd like to include:");
+  const combinedText = `${ocrText} ${userProvidedText}`;
+
+  // Call the function to send the combined text to ChatGPT
+  sendExternalMessage(combinedText);
+  
+  alert('OCR Result: ' + combinedText);
+
+  // Call the function to send the OCR result to the chatbot
+  //sendExternalMessage(ocrText); // Ensure sendExternalMessage is accessible
+} catch (error) {
+  console.error('Error processing OCR:', error);
+}
 
       canvas.remove(selectionRect);
     };
@@ -640,8 +691,8 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef) => {
       canvas.off('mouse:up', handleMouseUp);
     };
   }, [fabricCanvasRef, captureMode]);
+//return { setCaptureMode };
 
-  return { setCaptureMode };
 };
 
 
@@ -676,8 +727,19 @@ const Canvas = forwardRef(
 
 //tesseract
 
-const [captureMode] = useState(false); 
+const [captureMode, setCaptureMode] = useState(false);
 //const [captureMode] = useState(false);
+
+// Update capture mode state and toggle drawing mode accordingly
+const toggleCaptureMode = () => {
+  setCaptureMode(prevMode => {
+    // Disable drawing when capture mode is on
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.isDrawingMode = prevMode ? true : false;
+    }
+    return !prevMode;
+  });
+};
 
 
     const fileInputRef = useRef(null);
@@ -914,7 +976,8 @@ const [captureMode] = useState(false);
 
         //for tesseract
 //const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
-const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
+useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
+
 
 
 
@@ -1126,8 +1189,8 @@ const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
         Chatbot
       </button>
       
-     <button onClick={() => setCaptureMode(prev => !prev)}>
-  {captureMode ? 'Capture Mode OFF' : 'Capture Mode ON'}
+<button onClick={() => setCaptureMode(prev => !prev)}>
+  {captureMode ? 'Capture Mode ON' : 'Capture Mode OFF'}
 </button>
 
       

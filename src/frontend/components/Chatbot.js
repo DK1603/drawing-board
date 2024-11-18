@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+let sendExternalMessage = null;
+
 const Chatbot = () => {
   const [messages, setMessages] = useState([{ role: 'system', content: 'Hello! How can I help you today?' }]);
   const [inputMessage, setInputMessage] = useState('');
 
+  // Function to handle sending a new message
   const handleSend = async () => {
     if (!inputMessage.trim()) return;
+    await sendMessageToChatbot(inputMessage);
+    setInputMessage('');
+  };
 
-    const newMessage = { role: 'user', content: inputMessage };
+  // Function to send messages (either from user input or external input like OCR)
+  const sendMessageToChatbot = async (content) => {
+    const newMessage = { role: 'user', content };
     setMessages((prevMessages) => {
       const updatedMessages = [...prevMessages, newMessage];
-      // Clear the input field
-      setInputMessage('');
       return updatedMessages;
     });
 
@@ -25,9 +31,9 @@ const Chatbot = () => {
         },
         {
           headers: {
-  'Authorization': 'Bearer sk-svcacct-bHgFHgSSP2KfGILAQO69j28oL7V1Ov1xHwfxYxesUiYSzIiiJU8W7c7DviebWj-qerAT3BlbkFJO6PuYmGp87IikScE63If-_aMoabuxahfTFOxaxngRJlePLAlgyfkssuzeXWYmzTGRLAA', // Use 'Bearer' prefix, without template literals
-  'Content-Type': 'application/json',
-}
+            'Authorization': 'Bearer sk-svcacct-bHgFHgSSP2KfGILAQO69j28oL7V1Ov1xHwfxYxesUiYSzIiiJU8W7c7DviebWj-qerAT3BlbkFJO6PuYmGp87IikScE63If-_aMoabuxahfTFOxaxngRJlePLAlgyfkssuzeXWYmzTGRLAA', // Replace with your API key
+            'Content-Type': 'application/json',
+          },
         }
       );
 
@@ -36,6 +42,11 @@ const Chatbot = () => {
     } catch (error) {
       console.error('Error fetching response:', error.response ? error.response.data : error.message);
     }
+  };
+
+  // Public function to handle external input (e.g., OCR text)
+  sendExternalMessage = (text) => {
+    sendMessageToChatbot(text);
   };
 
   return (
@@ -59,6 +70,9 @@ const Chatbot = () => {
     </div>
   );
 };
+
+// Export `sendExternalMessage` if you need to access it externally
+export { Chatbot, sendExternalMessage };
 
 export default Chatbot;
 

@@ -16,6 +16,8 @@ import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
 
+import Chatbot from './Chatbot';
+
 import { Document, Page, pdfjs } from 'react-pdf/dist/esm/entry.webpack';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -866,6 +868,16 @@ const Canvas = forwardRef(
       },
     }));
 
+
+//chatbot vars
+  const [isChatbotVisible, setIsChatbotVisible] = useState(false);
+
+  const toggleChatbot = () => {
+  setIsChatbotVisible((prev) => !prev);
+};
+
+
+
     // Function to handle user sign-out
     const handleSignOut = () => {
       firebaseSignOut(getAuth())
@@ -947,12 +959,55 @@ const Canvas = forwardRef(
           >
             🗑️ Clear Canvas
           </button>
+
           
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>
             <button className={styles.toolButton} onClick={toggleUploadMenu}>
               📄 Upload PDF
             </button>
+            
+            {/* Chatbot button */}
+             <button
+        onClick={toggleChatbot} // This should be defined
+        style={{ padding: '10px', margin: '10px' }}
+      >
+        Chatbot
+      </button>
+      
+      
+
+             {/* Chatbot overlay (conditionally rendered) */}
+    {isChatbotVisible && (
+      <div
+        style={{
+          position: 'fixed',
+          top: '100px', // Adjust as needed
+          left: '20px', // Adjust as needed
+          width: '300px',
+          height: '400px',
+          backgroundColor: 'white',
+          border: '1px solid #ccc',
+          zIndex: 1000,
+          padding: '10px',
+          overflow: 'auto',
+        }}
+      >
+        <Chatbot /> {/* Ensure this component is imported and renders correctly */}
+        <button
+          onClick={toggleChatbot}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          -
+        </button>
+      </div>
+    )}
 
             {isUploadMenuVisible && (
               <div className={styles.uploadMenu}>

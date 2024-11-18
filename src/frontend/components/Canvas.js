@@ -16,6 +16,9 @@ import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
 
+import Chatbot from './Chatbot';
+import Tesseract from 'tesseract.js';
+
 import { Document, Page, pdfjs } from 'react-pdf/dist/esm/entry.webpack';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -95,6 +98,11 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
     };
   }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
 
+
+
+
+
+
   // Function to broadcast drawing data to the server
   const broadcastDrawing = useCallback(
     (data) => {
@@ -130,6 +138,13 @@ const useFabricCanvas = (
   fabric.Object.prototype.stateProperties.push('strokeId');
 
 
+/*tesseract
+useEffect(() => {
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.isDrawingMode = !captureMode; // Disable drawing when captureMode is true
+    }
+  }, [captureMode]);
+*/
   // Update refs when selectedTool or eraserMode changes
   useEffect(() => {
     selectedToolRef.current = selectedTool;
@@ -291,6 +306,10 @@ const useFabricCanvas = (
     },
     [fabricCanvasRef]
   );
+  
+  
+  
+  
   
   
 
@@ -515,6 +534,121 @@ useEffect(() => {
   };
 };
 
+
+
+
+
+
+const useCaptureAndProcessCanvasArea = (fabricCanvasRef) => {
+  const [captureMode, setCaptureMode] = useState(false);
+  let isSelecting = false;
+  let selectionRect;
+  let startPointer;
+
+  useEffect(() => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+
+    // Mouse down event
+    const handleMouseDown = (options) => {
+      if (!captureMode) return;
+      isSelecting = true;
+      startPointer = canvas.getPointer(options.e);
+
+      // Create a selection rectangle
+      selectionRect = new fabric.Rect({
+        left: startPointer.x,
+        top: startPointer.y,
+        width: 0,
+        height: 0,
+        fill: 'rgba(0,0,255,0.2)',
+        stroke: 'blue',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+      });
+      canvas.add(selectionRect);
+    };
+
+    // Mouse move event
+    const handleMouseMove = (options) => {
+      if (!isSelecting || !selectionRect) return;
+      const pointer = canvas.getPointer(options.e);
+      const width = Math.abs(pointer.x - startPointer.x);
+      const height = Math.abs(pointer.y - startPointer.y);
+
+      selectionRect.set({
+        width,
+        height,
+        left: pointer.x < startPointer.x ? pointer.x : startPointer.x,
+        top: pointer.y < startPointer.y ? pointer.y : startPointer.y,
+      });
+      selectionRect.setCoords();
+      canvas.renderAll();
+    };
+
+    // Mouse up event
+    const handleMouseUp = async () => {
+      if (!isSelecting || !captureMode) return;
+      isSelecting = false;
+
+      const { left, top, width, height } = selectionRect;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const tempCtx = tempCanvas.getContext('2d');
+      const originalCanvas = canvas.lowerCanvasEl;
+
+      tempCtx.drawImage(
+        originalCanvas,
+        left,
+        top,
+        width,
+        height,
+        0,
+        0,
+        width,
+        height
+      );
+
+      const imageDataURL = tempCanvas.toDataURL();
+
+      try {
+        const result = await Tesseract.recognize(imageDataURL, 'eng', {
+          logger: (m) => console.log(m),
+        });
+        console.log('OCR Result:', result.data.text);
+        alert('OCR Result: ' + result.data.text);
+      } catch (error) {
+        console.error('Error processing OCR:', error);
+      }
+
+      canvas.remove(selectionRect);
+    };
+
+    // Bind events
+    canvas.on('mouse:down', handleMouseDown);
+    canvas.on('mouse:move', handleMouseMove);
+    canvas.on('mouse:up', handleMouseUp);
+
+    // Cleanup on unmount
+    return () => {
+      canvas.off('mouse:down', handleMouseDown);
+      canvas.off('mouse:move', handleMouseMove);
+      canvas.off('mouse:up', handleMouseUp);
+    };
+  }, [fabricCanvasRef, captureMode]);
+
+  return { setCaptureMode };
+};
+
+
+
+
+
+
 // Main Canvas component
 const Canvas = forwardRef(
   ({ roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },ref) => {
@@ -528,7 +662,7 @@ const Canvas = forwardRef(
     const [brushColor, setBrushColor] = useState(initialBrushColor);
     const [brushSize, setBrushSize] = useState(initialBrushSize);
     const [eraserSize, setEraserSize] = useState(10); // Default eraser size
-
+    
     // State variables for tool selection
     const [selectedTool, setSelectedTool] = useState('brush'); // 'brush', 'eraser'
     const [isEraserOptionsVisible, setIsEraserOptionsVisible] = useState(false);
@@ -537,6 +671,13 @@ const Canvas = forwardRef(
     const [selectedPdf, setSelectedPdf] = useState(null);
     const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
     const [numPages, setNumPages] = useState(null);
+    
+
+
+//tesseract
+
+const [captureMode] = useState(false); 
+//const [captureMode] = useState(false);
 
 
     const fileInputRef = useRef(null);
@@ -768,6 +909,16 @@ const Canvas = forwardRef(
       updateBrushSettings,
       setBroadcastDrawing,
     } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode);
+    
+    
+
+        //for tesseract
+//const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
+const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
+
+
+
+
 
     
     // Handle receiving drawing data from the server
@@ -821,6 +972,8 @@ const Canvas = forwardRef(
       }
     };
     
+
+    
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
       roomId,
@@ -865,6 +1018,16 @@ const Canvas = forwardRef(
         clearSocketCanvas();
       },
     }));
+
+
+//chatbot vars
+  const [isChatbotVisible, setIsChatbotVisible] = useState(false);
+
+  const toggleChatbot = () => {
+  setIsChatbotVisible((prev) => !prev);
+};
+
+
 
     // Function to handle user sign-out
     const handleSignOut = () => {
@@ -947,12 +1110,60 @@ const Canvas = forwardRef(
           >
             🗑️ Clear Canvas
           </button>
+
           
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>
             <button className={styles.toolButton} onClick={toggleUploadMenu}>
               📄 Upload PDF
             </button>
+            
+            {/* Chatbot button */}
+             <button
+        onClick={toggleChatbot} // This should be defined
+        style={{ padding: '10px', margin: '10px' }}
+      >
+        Chatbot
+      </button>
+      
+     <button onClick={() => setCaptureMode(prev => !prev)}>
+  {captureMode ? 'Capture Mode OFF' : 'Capture Mode ON'}
+</button>
+
+      
+      
+
+             {/* Chatbot overlay (conditionally rendered) */}
+    {isChatbotVisible && (
+      <div
+        style={{
+          position: 'fixed',
+          top: '100px', // Adjust as needed
+          left: '20px', // Adjust as needed
+          width: '300px',
+          height: '400px',
+          backgroundColor: 'white',
+          border: '1px solid #ccc',
+          zIndex: 1000,
+          padding: '10px',
+          overflow: 'auto',
+        }}
+      >
+        <Chatbot /> {/* Ensure this component is imported and renders correctly */}
+        <button
+          onClick={toggleChatbot}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          -
+        </button>
+      </div>
+    )}
 
             {isUploadMenuVisible && (
               <div className={styles.uploadMenu}>

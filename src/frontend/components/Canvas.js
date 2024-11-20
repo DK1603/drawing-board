@@ -1325,21 +1325,33 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
             </div>
           )}
         {/* Canvas Wrapper */}
-        <div className={styles.canvasWrapper}>
-          <canvas
-            ref={(node) => {
-              setCanvasNode(node);
-              if (node) {
-                console.log('Canvas element rendered:', node);
-              } else {
-                console.warn('Canvas element not found');
-              }
-            }}
-            id="main-canvas"
-            width={window.innerWidth}
-            height={window.innerHeight}
-          />
-        </div>
+<div
+  className={styles.canvasWrapper}
+  style={{
+    height: '100vh', // Set the visible height to the viewport height
+    overflowY: 'auto', // Enable vertical scrolling if content exceeds the height
+    overflowX: 'hidden', // Optional: Hide horizontal scrolling
+    border: '1px solid #ccc', // Optional: Add a border for better visibility
+  }}
+>
+  <canvas
+    ref={(node) => {
+      setCanvasNode(node);
+      if (node) {
+        console.log('Canvas element rendered:', node);
+      } else {
+        console.warn('Canvas element not found');
+      }
+    }}
+    id="main-canvas"
+    width={window.innerWidth}
+    height={window.innerHeight * 10} // Large canvas height to test scrolling
+    style={{
+      display: 'block', // Ensures no inline scrollbars on the canvas itself
+      margin: '0 auto', // Center canvas horizontally if needed
+    }}
+  />
+</div>
 
         {/* Bottom Left - Color Picker and Size Sliders */}
         <div className={styles.controlsWrapper}>

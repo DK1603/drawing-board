@@ -1,7 +1,7 @@
 /* Toolbar.module.css */
 
 .toolbarContainer {
-    display: flex;
+    display: none;
     background-color: #fff;
     padding: 10px;
     z-index: 10;

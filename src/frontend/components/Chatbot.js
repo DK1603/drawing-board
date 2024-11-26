@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { IoSend } from "react-icons/io5";
+
 
 let sendExternalMessage = null;
 
@@ -27,7 +29,7 @@ const Chatbot = () => {
         'https://api.openai.com/v1/chat/completions',
         {
           model: 'gpt-3.5-turbo',
-          messages: [...messages, newMessage], // Include updated messages in the request
+          messages: [...messages, newMessage],
         },
         {
           headers: {
@@ -44,7 +46,6 @@ const Chatbot = () => {
     }
   };
 
-  // Public function to handle external input (e.g., OCR text)
   sendExternalMessage = (text) => {
     sendMessageToChatbot(text);
   };
@@ -58,20 +59,45 @@ const Chatbot = () => {
           </div>
         ))}
       </div>
-      <input
-        type="text"
-        value={inputMessage}
-        onChange={(e) => setInputMessage(e.target.value)}
-        style={{ width: '80%', padding: '10px' }}
-      />
-      <button onClick={handleSend} style={{ padding: '10px' }}>
-        Send
-      </button>
+      <div style={{ position: 'relative', width: '100%', marginBottom: '10px' }}>
+        <textarea
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px',
+            paddingRight: '70px',
+            borderRadius: '10px',
+            border: '1px solid #ccc',
+            outline: 'none',
+            boxSizing: 'border-box',
+            resize: 'vertical',
+            minHeight: '50px',
+            maxHeight: '200px',
+          }}
+        />
+        <button
+          onClick={handleSend}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            right: '10px',
+            transform: 'translateY(-50%)',
+            padding: '5px 15px',
+            border: 'none',
+            borderRadius: '5px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            cursor: 'pointer',
+          }}
+        >
+          <IoSend  />
+        </button>
+      </div>
     </div>
-  );
-};
+  );  
+};  
 
-// Export `sendExternalMessage` if you need to access it externally
 export { Chatbot, sendExternalMessage };
 
 export default Chatbot;

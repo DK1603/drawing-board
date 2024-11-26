@@ -15,6 +15,11 @@ import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
+import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot } from "react-icons/fa";
+import { FaTrashCan } from "react-icons/fa6";
+import { SiEraser } from "react-icons/si";
+import { BiSolidEraser } from "react-icons/bi";
+import { IoCloseSharp } from "react-icons/io5";
 
 import Chatbot from './Chatbot';
 import { sendExternalMessage } from './Chatbot';
@@ -100,6 +105,7 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
 
 
+  
 
 
 
@@ -722,10 +728,18 @@ const Canvas = forwardRef(
     const [selectedPdf, setSelectedPdf] = useState(null);
     const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
     const [numPages, setNumPages] = useState(null);
+    const [isListVisible, setListVisible] = useState(false);
     
 
-
-//tesseract
+    const handleBlur = (e) => {
+      // Check if the event target is outside the user list or button
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        setListVisible(false); // Close the list if focus is lost
+      }
+    };
+    const toggleListVisibility = () => {
+      setListVisible(!isListVisible);
+    };
 
 const [captureMode, setCaptureMode] = useState(false);
 //const [captureMode] = useState(false);
@@ -978,12 +992,6 @@ const toggleCaptureMode = () => {
 //const { setCaptureMode } = useCaptureAndProcessCanvasArea(fabricCanvasRef);
 useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
 
-
-
-
-
-
-    
     // Handle receiving drawing data from the server
     const handleReceiveDrawing = useCallback(
       (drawing) => {
@@ -1114,7 +1122,7 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
         {/* Toolbar */}
         <div className={styles.toolbar}>
           {/* Brush Button */}
-          <button
+                    <button
             className={`${styles.toolButton} ${selectedTool === 'brush' ? styles.activeTool : ''}`}
             onClick={() => {
               setSelectedTool('brush');
@@ -1122,7 +1130,7 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
               console.log('Brush tool selected');
             }}
           >
-            ✏️ Brush
+            <FaPencilAlt style={{ marginRight: '8px' }} /> Draw
           </button>
 
           {/* Eraser Button */}
@@ -1134,7 +1142,7 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
               console.log('Eraser tool selected');
             }}
           >
-            🧽 Eraser
+            <FaEraser style={{ marginRight: '8px' }} /> Erase
           </button>
 
           {/* Eraser Options */}
@@ -1148,7 +1156,7 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
                   console.log('White Eraser mode selected');
                 }}
               >
-                White Eraser
+               <SiEraser style={{ marginRight: '8px' }} /> White Eraser
               </button>
               <button
                 className={styles.toolButton}
@@ -1158,7 +1166,7 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
                   console.log('Stroke Eraser mode selected');
                 }}
               >
-                Stroke Eraser
+               <BiSolidEraser style={{ marginRight: '8px' }} /> Stroke Eraser
               </button>
             </div>
           )}
@@ -1171,62 +1179,63 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
               console.log('Clear Canvas button clicked');
             }}
           >
-            🗑️ Clear Canvas
+            <FaTrashCan style={{ marginRight: '8px' }} /> Clear Canvas
           </button>
 
           
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>
             <button className={styles.toolButton} onClick={toggleUploadMenu}>
-              📄 Upload PDF
+            <FaCloudUploadAlt style={{ marginRight: '8px' }} /> Upload
             </button>
             
             {/* Chatbot button */}
              <button
+             className={styles.toolButton}
         onClick={toggleChatbot} // This should be defined
         style={{ padding: '10px', margin: '10px' }}
       >
-        Chatbot
+        <FaRobot style={{ marginRight: '8px' }} /> Chatbot
       </button>
       
-<button onClick={() => setCaptureMode(prev => !prev)}>
+<button 
+className={styles.toolButton}
+onClick={() => setCaptureMode(prev => !prev)}>
   {captureMode ? 'Capture Mode ON' : 'Capture Mode OFF'}
 </button>
-
-      
-      
-
-             {/* Chatbot overlay (conditionally rendered) */}
-    {isChatbotVisible && (
-      <div
-        style={{
-          position: 'fixed',
-          top: '100px', // Adjust as needed
-          left: '20px', // Adjust as needed
-          width: '300px',
-          height: '400px',
-          backgroundColor: 'white',
-          border: '1px solid #ccc',
-          zIndex: 1000,
-          padding: '10px',
-          overflow: 'auto',
-        }}
-      >
-        <Chatbot /> {/* Ensure this component is imported and renders correctly */}
-        <button
-          onClick={toggleChatbot}
-          style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            padding: '5px',
-            cursor: 'pointer',
-          }}
-        >
-          -
-        </button>
-      </div>
-    )}
+{isChatbotVisible && (
+  <div
+  style={{
+    position: 'fixed',
+    top: '78px', // Adjusted for the toolbar height
+    right: '0', // Aligned to the right
+    width: '350px',
+    height: 'calc(100vh - 80px)', // Reduced height for a shorter appearance
+    backgroundColor: 'white',
+    border: '1px solid #ccc',
+    zIndex: 1000,
+    padding: '10px',
+    overflow: 'auto',
+  }}
+  
+  >
+    <Chatbot />
+    <button
+      onClick={toggleChatbot}
+      style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        padding: '5px',
+        cursor: 'pointer',
+        backgroundColor: 'white',
+        
+      }}
+    >
+      <IoCloseSharp />
+    </button>
+  </div>
+)}
 
             {isUploadMenuVisible && (
               <div className={styles.uploadMenu}>
@@ -1405,10 +1414,26 @@ useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
         </div>
 
         {/* Bottom Right - User List */}
-        <div className={styles.userList}>
+        <div className={styles.userListContainer}>
+        {!isListVisible && (
+        <button 
+        className={styles.toggleButton} 
+        onClick={toggleListVisibility}
+      >
+        User List
+      </button>
+        )}
+      {isListVisible && (
+        <div
+        className={styles.userList}
+        onBlur={handleBlur} // Trigger onBlur when focus is lost
+        tabIndex={0} // Make the div focusable
+      >
           <div className={styles.userItem}>User 1</div>
           <div className={styles.userItem}>User 2</div>
-          {/* Add more user items as needed */}
+        </div>
+      )}
+          
         </div>
       </div>
     );

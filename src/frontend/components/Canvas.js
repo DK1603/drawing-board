@@ -21,6 +21,26 @@ import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 
+const hexToRGBA = (hex, opacity) => {
+  let r = 0,
+    g = 0,
+    b = 0;
+
+  // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+  if (hex.length === 4) {
+    r = "0x" + hex[1] + hex[1];
+    g = "0x" + hex[2] + hex[2];
+    b = "0x" + hex[3] + hex[3];
+  } else if (hex.length === 7) {
+    r = "0x" + hex[1] + hex[2];
+    g = "0x" + hex[3] + hex[4];
+    b = "0x" + hex[5] + hex[6];
+  }
+
+  return `rgba(${+r}, ${+g}, ${+b}, ${opacity})`;
+};
+
+
 // Custom hook for managing the socket connection
 const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   const socketRef = useRef(null);
@@ -118,7 +138,8 @@ const useFabricCanvas = (
   canvasNode,
   initialDrawings,
   selectedTool,
-  eraserMode
+  eraserMode,
+  brushOpacity,
 ) => {
   const fabricCanvasRef = useRef(null); // Reference to the Fabric.js canvas instance
   const broadcastDrawingRef = useRef(null); // Reference to the broadcast function
@@ -149,18 +170,21 @@ const useFabricCanvas = (
 
   // Function to update the brush settings (color, size, eraser mode)
   const updateBrushSettings = useCallback(
-    (color, size, isErasing) => {
+    (color, size, isErasing, opacity = 1) => {
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.isDrawingMode = true; // Enable drawing mode
         const brush = fabricCanvasRef.current.freeDrawingBrush;
-        brush.color = isErasing ? 'white' : color; // Use white color for eraser
+        const rgbaColor = isErasing ? 'white' : hexToRGBA(color, opacity); // Use RGBA color
+        brush.color = rgbaColor; // Use white color for eraser
         brush.width = size;
         brush._isErasing = isErasing; // Custom flag to track eraser mode
+        brush.opacity = opacity;
 
         console.log('Brush settings updated:', {
           color: brush.color,
           width: brush.width,
           isErasing: brush._isErasing,
+          opacity,
         });
       } else {
         console.warn('updateBrushSettings called but fabricCanvasRef.current is null');
@@ -175,32 +199,21 @@ const useFabricCanvas = (
   const addDrawingToCanvas = useCallback(
     (drawing) => {
       const { strokeId, type, imageData, left, top, scaleX, scaleY } = drawing;
-  
-      if (!strokeId) {
-        console.warn('Received drawing without strokeId:', drawing);
+      
+      if (!type) {
+        console.warn('Received drawing without type:', drawing);
         return;
       }
 
+      console.log("Received element type:", type);
+
       if (type === 'Image') {
-        // Check if image with strokeId already exists
-        let existingImage = fabricCanvasRef.current
-          .getObjects()
-          .find((obj) => obj.strokeId === strokeId);
+        return new Promise((resolve, reject) => {
+          console.log("Add image");
+          const imgElement = new Image();
   
-        if (existingImage) {
-          // Update position and scale of the existing image
-          existingImage.set({
-            left: left || existingImage.left,
-            top: top || existingImage.top,
-            scaleX: scaleX || existingImage.scaleX,
-            scaleY: scaleY || existingImage.scaleY,
-          });
-          existingImage.setCoords();
-          fabricCanvasRef.current.renderAll();
-        } else {
-          // If the image does not exist, add it
-          fabric.Image.fromURL(imageData, (img) => {
-            img.set({
+          imgElement.onload = () => {
+            const img = new fabric.Image(imgElement, {
               left,
               top,
               scaleX,
@@ -209,14 +222,22 @@ const useFabricCanvas = (
               selectable: true,
             });
             fabricCanvasRef.current.add(img);
-            fabricCanvasRef.current.renderAll();
-          });
-        }
-      }
+            console.log("Render Image");
+            fabricCanvasRef.current.requestRenderAll();
+            resolve(); // Resolve the Promise after the image is added
+          };
   
-      if (type === 'draw') {
+          imgElement.onerror = (error) => {
+            console.error('Error loading image:', error);
+            resolve(); // Resolve even on error to continue processing
+          };
+  
+          imgElement.src = imageData;
+        });
+      } 
+      else if (type === 'draw') {
         // Handle real-time drawing updates with temporary strokes
-        const { points, stroke, strokeWidth, isErasing } = drawing;
+        const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
         if (points && points.length > 0) {
           let polyline = ongoingStrokes.current[strokeId];
           if (!polyline) {
@@ -249,9 +270,10 @@ const useFabricCanvas = (
           });
           fabricCanvasRef.current.requestRenderAll();
         }
+
       } else if (type === 'stroke') {
         // Finalize the stroke by replacing the temporary stroke
-        const { points, stroke, strokeWidth, isErasing } = drawing;
+        const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
   
         let polyline = ongoingStrokes.current[strokeId];
         if (polyline) {
@@ -273,8 +295,10 @@ const useFabricCanvas = (
           });
           finalizedPolyline.strokeId = strokeId;
           fabricCanvasRef.current.add(finalizedPolyline);
+          console.log("Render strokes");
           fabricCanvasRef.current.renderAll();
         }
+        return Promise.resolve();
       } else if (type === 'delete') {
         // Handle deletion of stroke
         console.log('Received delete event for strokeId:', strokeId);
@@ -285,7 +309,10 @@ const useFabricCanvas = (
           fabricCanvasRef.current.remove(target);
           fabricCanvasRef.current.renderAll();
         }
-      } else {
+        return Promise.resolve();
+
+      } 
+      else {
         console.warn('Invalid drawing data received:', drawing);
       }
     },
@@ -394,15 +421,16 @@ useEffect(() => {
           if (now - lastSentTime >= 16) {
             lastSentTime = now;
 
+            const brush = fabricCanvasRef.current.freeDrawingBrush;
+            const rgbaColor = brush.color; // Already includes opacity
             const drawingData = {
               strokeId: currentStrokeId,
               type: 'draw',
               points: [pointer], // Send the latest point
-              stroke: fabricCanvasRef.current.freeDrawingBrush.color,
-              strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
-              isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
+              stroke: rgbaColor,
+              strokeWidth: brush.width,
+              isErasing: brush._isErasing || false,
             };
-
             console.log('Broadcasting drawing data:', drawingData);
 
             // Broadcast the drawing data
@@ -415,7 +443,12 @@ useEffect(() => {
           const event = opt.e;
           const target = fabricCanvasRef.current.findTarget(event, true);
           if(target){
-            console.log("FOUND THIS STROKE!!!", target.strokleId ,target);
+            const type = target.type;
+            //console.log("FOUND THIS !!!",type , target.strokleId ,target); //DEBUG TOOL
+            if(type !== "polyline" && type !== "path" ){
+              console.log(type);  
+              return;
+            }
           }
           if (target && !deletedStrokeIdsRef.current.has(target.strokeId)) {
             // Remove the stroke from the canvas
@@ -449,13 +482,15 @@ useEffect(() => {
         if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
           if (broadcastDrawingRef.current) {
             // Send the entire stroke to the server for saving
+            const brush = fabricCanvasRef.current.freeDrawingBrush;
+            const rgbaColor = brush.color; 
             const strokeData = {
               strokeId: currentStrokeId,
               type: 'stroke',
               points: collectedPoints,
-              stroke: fabricCanvasRef.current.freeDrawingBrush.color,
-              strokeWidth: fabricCanvasRef.current.freeDrawingBrush.width,
-              isErasing: fabricCanvasRef.current.freeDrawingBrush._isErasing || false,
+              stroke: rgbaColor,
+              strokeWidth: brush.width,
+              isErasing: brush._isErasing || false,
             };
 
             broadcastDrawingRef.current(strokeData);
@@ -528,11 +563,11 @@ const Canvas = forwardRef(
     const [brushColor, setBrushColor] = useState(initialBrushColor);
     const [brushSize, setBrushSize] = useState(initialBrushSize);
     const [eraserSize, setEraserSize] = useState(10); // Default eraser size
-
     // State variables for tool selection
     const [selectedTool, setSelectedTool] = useState('brush'); // 'brush', 'eraser'
     const [isEraserOptionsVisible, setIsEraserOptionsVisible] = useState(false);
     const [eraserMode, setEraserMode] = useState('none'); // 'none', 'whiteEraser', 'strokeEraser'
+    const [brushOpacity, setBrushOpacity] = useState(1); 
 
     const [selectedPdf, setSelectedPdf] = useState(null);
     const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
@@ -730,18 +765,6 @@ const Canvas = forwardRef(
               });
             }
     
-            // Save to Firestore
-            const imageDoc = doc(getFirestore(), `boards/${roomId}/images`, uniqueId);
-            setDoc(imageDoc, {
-              type: 'image',
-              strokeId: uniqueId,
-              imageData,
-              ...modifiedState,
-            }).then(() => {
-              console.log("Image saved to Firestore.");
-            }).catch((error) => {
-              console.error("Error saving image to Firestore:", error);
-            });
           };
     
           // Listen for the mouse down event outside the image to finalize state
@@ -767,7 +790,7 @@ const Canvas = forwardRef(
       addDrawingToCanvas,
       updateBrushSettings,
       setBroadcastDrawing,
-    } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode);
+    } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode, brushOpacity);
 
     
     // Handle receiving drawing data from the server
@@ -786,40 +809,19 @@ const Canvas = forwardRef(
     }, [clearCanvas]);
 
     // Handle loading initial drawings when joining a room
+    // modify!!!
     const handleLoadDrawings = useCallback(
-      (strokes) => {
-        console.log('handleLoadDrawings called with strokes:', strokes);
-        strokes.forEach((stroke) => {
-          addDrawingToCanvas({
-            ...stroke,
-            type: stroke.type || 'stroke', // Ensure type is 'stroke' for loaded strokes
-          });
-        });
+      async (elements) => {
+        console.log('handleLoadDrawings called with elements:', elements);
+
+        // Process elements sequentially, awaiting each addition
+        for (const element of elements) {
+          await addDrawingToCanvas(element);
+        }
       },
       [addDrawingToCanvas]
     );
 
-    const fetchImagesFromFirestore = async () => {
-      const firestore = getFirestore();
-      const imagesCollectionRef = collection(firestore, `boards/${roomId}/images`);
-    
-      try {
-        const querySnapshot = await getDocs(imagesCollectionRef);
-        const images = [];
-        querySnapshot.forEach((doc) => {
-          images.push(doc.data());
-        });
-    
-        images.forEach((imageData) => {
-          addDrawingToCanvas({
-            ...imageData,
-            type: 'Image', // Ensure the type is set to 'Image' for proper rendering
-          });
-        });
-      } catch (error) {
-        console.error('Error fetching images from Firestore:', error);
-      }
-    };
     
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
@@ -842,12 +844,12 @@ const Canvas = forwardRef(
     // Update brush settings whenever relevant states change
     useEffect(() => {
       if (selectedTool === 'brush') {
-        updateBrushSettings(brushColor, brushSize, false);
+        updateBrushSettings(brushColor, brushSize, false, brushOpacity);
         if (fabricCanvasRef.current) {
           fabricCanvasRef.current.isDrawingMode = true;
         }
       } else if (selectedTool === 'eraser' && eraserMode === 'whiteEraser') {
-        updateBrushSettings('white', eraserSize, true);
+        updateBrushSettings('white', eraserSize, true, brushOpacity);
         if (fabricCanvasRef.current) {
           fabricCanvasRef.current.isDrawingMode = true;
         }
@@ -856,7 +858,7 @@ const Canvas = forwardRef(
           fabricCanvasRef.current.isDrawingMode = false;
         }
       }
-    }, [selectedTool, eraserMode, brushColor, brushSize, eraserSize, updateBrushSettings, fabricCanvasRef]);
+    }, [selectedTool, eraserMode, brushColor, brushSize, eraserSize, brushOpacity, updateBrushSettings, fabricCanvasRef]);
 
     // Expose the clearCanvas function to parent components via ref
     useImperativeHandle(ref, () => ({
@@ -877,8 +879,6 @@ const Canvas = forwardRef(
     useEffect(() => {
       setIsLoading(false);
       console.log('Canvas component mounted');
-      fetchImagesFromFirestore(); // Load images from Firestore on page load
-
     }, []);
 
     if (isLoading) return <div>Loading canvas...</div>;
@@ -889,10 +889,11 @@ const Canvas = forwardRef(
         <div className={styles.toolbar}>
           {/* Brush Button */}
           <button
-            className={`${styles.toolButton} ${selectedTool === 'brush' ? styles.activeTool : ''}`}
-            onClick={() => {
+          className={`${styles.toolButton} ${selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''}`}
+          onClick={() => {
               setSelectedTool('brush');
               setEraserMode('none'); // Reset eraser mode
+              setBrushOpacity(1);
               console.log('Brush tool selected');
             }}
           >
@@ -947,7 +948,18 @@ const Canvas = forwardRef(
           >
             🗑️ Clear Canvas
           </button>
-          
+
+          <button
+            className={`${styles.toolButton} ${selectedTool === 'brush' && brushOpacity === 0.3 ? styles.activeTool : ''}`}
+            onClick={() => {
+              setSelectedTool('brush');
+              setBrushOpacity(0.3); // Set opacity to 0.3 for highlighter
+              console.log('Highlighter selected, opacity set to 0.3');
+            }}
+          >
+            🖍️ Highlighter
+          </button>
+            
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>
             <button className={styles.toolButton} onClick={toggleUploadMenu}>

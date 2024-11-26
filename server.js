@@ -57,12 +57,12 @@ io.on('connection', (socket) => {
     console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
     socket.join(boardId);
 
-    // Load existing strokes from Firestore
+    // Load existing elements from Firestore
     const boardRef = db.collection('boards').doc(boardId);
-    const strokesSnapshot = await boardRef.collection('strokes').get();
-    const strokes = strokesSnapshot.docs.map((doc) => doc.data());
+    const elementsSnapshot = await boardRef.collection('elements').get();
+    const elements = elementsSnapshot.docs.map((doc) => doc.data());
 
-    socket.emit('loadDrawings', strokes);
+    socket.emit('loadDrawings', elements);
   });
 
   // Save drawing data to Firestore
@@ -70,20 +70,16 @@ io.on('connection', (socket) => {
     const { boardId, drawing } = data;
     const { type, strokeId, points, stroke, strokeWidth, isErasing } = drawing;
     console.log('Received drawing data:', drawing); 
-
+    console.log('Data type: ', drawing.type);
     socket.to(boardId).emit('drawing', drawing);
 
     if (type === 'Image') {
       try {
         const boardRef = db.collection('boards').doc(boardId);
-        const imageDoc = boardRef.collection('images').doc(strokeId);
+        const imageDoc = boardRef.collection('elements').doc(strokeId);
   
         await imageDoc.set({
-          imageData,
-          left,
-          top,
-          scaleX,
-          scaleY,
+          ...drawing,
           timestamp: Date.now(),
         });
         console.log(`Image saved successfully with strokeId: ${strokeId}`);
@@ -95,7 +91,7 @@ io.on('connection', (socket) => {
     if (type === 'stroke' && points?.length > 0) {
     // Save stroke to Firestore, but do not forward to other clients
     const boardRef = db.collection('boards').doc(boardId);
-    const strokeRef = boardRef.collection('strokes').doc(drawing.strokeId);    
+    const strokeRef = boardRef.collection('elements').doc(drawing.strokeId);    
     try {
       await strokeRef.set({
         ...drawing,
@@ -108,7 +104,7 @@ io.on('connection', (socket) => {
     } else if (type === 'delete' && strokeId) {
       // Handle deletion of stroke
       const boardRef = db.collection('boards').doc(boardId);
-      const strokeRef = boardRef.collection('strokes').doc(strokeId);
+      const strokeRef = boardRef.collection('elements').doc(strokeId);
   
       try {
         await strokeRef.delete();
@@ -123,29 +119,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Clear all strokes for a board
+  // Clear all elements for a board
   socket.on('clearCanvas', async ({ roomId }) => {
     console.log(`Clear canvas for room ${roomId}`);
     io.to(roomId).emit('clearCanvas', { roomId });
   
-    const strokesRef = db.collection('boards').doc(roomId).collection('strokes');
-    const imagesRef = db.collection('boards').doc(roomId).collection('images');
+    const elementsRef = db.collection('boards').doc(roomId).collection('elements');
     const batch = db.batch();
   
     try {
-      // Delete strokes
-      const strokesSnapshot = await strokesRef.get();
-      strokesSnapshot.forEach((doc) => batch.delete(doc.ref));
+      // Delete elements
+      const elementsSnapshot = await elementsRef.get();
+      elementsSnapshot.forEach((doc) => batch.delete(doc.ref));
       console.log(`Strokes collection added to batch deletion for board ${roomId}`);
-  
-      // Delete images
-      const imagesSnapshot = await imagesRef.get();
-      imagesSnapshot.forEach((doc) => batch.delete(doc.ref));
-      console.log(`Images collection added to batch deletion for board ${roomId}`);
   
       // Commit batch
       await batch.commit();
-      console.log(`Strokes and images collections deleted for board ${roomId}`);
+      console.log(`Elements deleted for board ${roomId}`);
       
     } catch (error) {
       console.error(`Failed to delete strokes or images collection for board ${roomId}:`, error);

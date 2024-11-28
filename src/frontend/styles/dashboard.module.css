@@ -9,7 +9,6 @@
   padding: 40px;
   gap: 20px;
   background: #cadadc;
-  /* background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); */
   min-height: 100vh;
   font-family: 'Open Sans', sans-serif;
   color: #333;
@@ -35,8 +34,21 @@
   margin-bottom: 10px;
 }
 
-.signOutButton, .editProfileButton, .saveButton {
+.editProfileButton, .saveButton {
   background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 10px;
+  margin-right: 20px;
+  transition: background 0.3s ease;
+}
+
+.signOutButton{
+  background-color: #ff1414;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -56,9 +68,11 @@
   background-color: #4c5157;
 }
 
+.signOutButton:hover{
+  background-color: #b60606;
+}
 
-.saveButton:hover,
-.signOutButton:hover {
+.saveButton:hover{
   background-color: #0056b3;
 }
 
@@ -92,10 +106,23 @@
 
 /* Action Button for creating or joining boards */
 .actionButton {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  margin-left: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: background 0.3s ease;
+  
+}
+
+.CreateBoardActionButton{
   background-color: #007bff;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 16px;
   cursor: pointer;
   border-radius: 8px;
   font-size: 1rem;
@@ -103,11 +130,11 @@
 }
 
 .actionButton:hover {
-  background-color: #0056b3;
+  background-color: #179338;
 }
 
 .boardInput {
-  width: 100%;
+  width: 90%;
   padding: 10px;
   margin-top: 10px;
   border: 1px solid #ddd;
@@ -144,6 +171,10 @@
   border-radius: 8px;
   margin-right: 10px;
   width: 70%;
+}
+
+.boardInput {
+  margin-bottom: 10px;
 }
 
 /* Container and Styles for Buttons within Board Items */

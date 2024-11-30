@@ -37,7 +37,16 @@ async function deleteCollection(collectionPath) {
   console.log(`All documents deleted from ${collectionPath}`);
 }
 
-// Call the delete function
-deleteCollection('boards')
-  .then(() => console.log('Boards data deleted successfully'))
-  .catch((error) => console.error('Error deleting data:', error));
+// Call the delete function for relevant collections
+async function resetFirestore() {
+  try {
+    await deleteCollection('boards');
+    await deleteCollection('users');
+    // Add any other top-level collections you need to delete
+    console.log('Firestore reset successfully');
+  } catch (error) {
+    console.error('Error resetting Firestore:', error);
+  }
+}
+
+resetFirestore();

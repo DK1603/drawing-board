@@ -1,7 +1,10 @@
+// src/frontend/components/SignUp.js
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import firebaseApp from '../services/firebase-config';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore'; // Import Firestore methods
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import styles from '../styles/auth_style.module.css';
 
@@ -15,17 +18,19 @@ function SignUp() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmErrorMessage, setConfirmErrorMessage] = useState('');
+  
   const auth = getAuth(firebaseApp);
+  const db = getFirestore(firebaseApp); // Initialize Firestore
   const navigate = useNavigate();
 
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setEmailError('');
     setPasswordError('');
     setConfirmErrorMessage('');
 
-    
+    // Input Validation
     if (!email) {
       setEmailError('Enter email');
       return;
@@ -43,18 +48,34 @@ function SignUp() {
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        console.log('User registered:', userCredential.user);
-        setShowModal(true);
-      })
-      .catch((error) => {
-        if (error.code === 'auth/email-already-in-use') {
-          setErrorMessage('This email is already associated with an account.');
-        } else {
-          setErrorMessage('Error registering user: ' + error.message);
-        }
+    try {
+      // Create user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log('User registered:', user);
+
+      // **Create Firestore document for the new user**
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email,
+        displayName: '', // Initialize with empty string or prompt user to set it later
+        createdAt: new Date(),
       });
+      console.log('User document created in Firestore.');
+
+      // Show success modal
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error registering user:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        setErrorMessage('This email is already associated with an account.');
+      } else if (error.code === 'auth/invalid-email') {
+        setErrorMessage('Invalid email address.');
+      } else if (error.code === 'auth/weak-password') {
+        setErrorMessage('Password should be at least 6 characters.');
+      } else {
+        setErrorMessage('Error registering user: ' + error.message);
+      }
+    }
   };
 
   const handleEmailChange = (e) => {

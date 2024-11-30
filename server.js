@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -54,16 +56,54 @@ io.on('connection', (socket) => {
 
   // Join or Create a Board
   socket.on('joinBoard', async ({ boardId }) => {
-    console.log(`Client ${socket.id} (${user.uid}) joined board ${boardId}`);
-    socket.join(boardId);
+    console.log('Client is joining board:', boardId); // Debug the boardId
+  
+    if (!boardId) {
+      console.error('Board ID is missing or invalid');
+      socket.emit('error', 'Invalid boardId');
+      return;
+    }
+  
+    try {
+      const boardDoc = await db.collection('boards').doc(boardId).get();
+      if (!boardDoc.exists) {
+        console.error('Board not found:', boardId);
+        socket.emit('error', 'Board not found');
+        return;
+      }
+  
+      const boardData = boardDoc.data();
+      const ownerId = boardData.ownerId;
+  
+      if (!boardData.members.includes(socket.user.uid) && ownerId !== socket.user.uid) {
+        console.error('User not authorized to join board');
+        socket.emit('error', 'User not authorized to join board');
+        return;
+      }
+  
+      socket.join(boardId);
 
-    // Load existing elements from Firestore
-    const boardRef = db.collection('boards').doc(boardId);
-    const elementsSnapshot = await boardRef.collection('elements').get();
+
+    // **Load existing elements from Firestore**
+    const elementsSnapshot = await db.collection('users')
+      .doc(ownerId)
+      .collection('boards')
+      .doc(boardId)
+      .collection('elements')
+      .get();
+
     const elements = elementsSnapshot.docs.map((doc) => doc.data());
 
+    console.log('Loaded elements from Firestore:', elements);
+
+    // **Emit the elements to the client**
     socket.emit('loadDrawings', elements);
-  });
+  } catch (error) {
+    console.error('Error joining board:', error);
+    socket.emit('error', 'Failed to join board');
+  }
+});
+  
 
   // Save drawing data to Firestore
   socket.on('drawing', async (data) => {
@@ -71,77 +111,100 @@ io.on('connection', (socket) => {
     const { type, strokeId, points, stroke, strokeWidth, isErasing } = drawing;
     console.log('Received drawing data:', drawing); 
     console.log('Data type: ', drawing.type);
-    socket.to(boardId).emit('drawing', drawing);
-
-    if (type === 'Image') {
-      try {
-        const boardRef = db.collection('boards').doc(boardId);
-        const imageDoc = boardRef.collection('elements').doc(strokeId);
+    console.log('Received strokeId:', strokeId);
   
+    if (!strokeId || typeof strokeId !== 'string') {
+      console.error('Invalid strokeId:', strokeId);
+      return;
+    }
+  
+    socket.to(boardId).emit('drawing', drawing);
+  
+    try {
+      // Lookup board to get ownerId
+      const boardDoc = await db.collection('boards').doc(boardId).get();
+      if (!boardDoc.exists) {
+        console.error('Board not found:', boardId);
+        return;
+      }
+      const boardData = boardDoc.data();
+      const ownerId = boardData.ownerId;
+
+      // After fetching boardData
+      console.log('boardData:', boardData);
+      console.log('ownerId:', ownerId);
+
+      if (!boardId) {
+        console.error('Board ID is missing');
+        return; // Or emit an error to the client
+      }
+      
+
+  
+      const elementsRef = db.collection('users').doc(ownerId).collection('boards').doc(boardId).collection('elements');
+  
+      if (type === 'Image') {
+        const imageDoc = elementsRef.doc(strokeId);
         await imageDoc.set({
           ...drawing,
-          timestamp: Date.now(),
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
         console.log(`Image saved successfully with strokeId: ${strokeId}`);
-      } catch (error) {
-        console.error('Failed to save image to Firestore:', error);
-      }
-    }
-
-    if (type === 'stroke' && points?.length > 0) {
-    // Save stroke to Firestore, but do not forward to other clients
-    const boardRef = db.collection('boards').doc(boardId);
-    const strokeRef = boardRef.collection('elements').doc(drawing.strokeId);    
-    try {
-      await strokeRef.set({
-        ...drawing,
-        timestamp: Date.now(),
-      });
-      console.log(`Stroke saved successfully with strokeId: ${drawing.strokeId}`);
-    } catch (error) {
-      console.error('Failed to save stroke to Firestore:', error);
-    }
-    } else if (type === 'delete' && strokeId) {
-      // Handle deletion of stroke
-      const boardRef = db.collection('boards').doc(boardId);
-      const strokeRef = boardRef.collection('elements').doc(strokeId);
-  
-      try {
+      } else if (type === 'stroke' && points?.length > 0) {
+        const strokeRef = elementsRef.doc(strokeId);    
+        await strokeRef.set({
+          ...drawing,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
+      } else if (type === 'delete' && strokeId) {
+        const strokeRef = elementsRef.doc(strokeId);
         await strokeRef.delete();
         console.log(`Stroke deleted successfully with strokeId: ${strokeId}`);
-      } catch (error) {
-        console.error('Failed to delete stroke from Firestore:', error);
+      } else if (type === 'end') {
+        console.log(`Stroke ended for strokeId: ${strokeId}`);
+      } else {
+        console.error("Invalid drawing data received:", drawing);
       }
-    } else if (type === 'end') {
-      console.log(`Stroke ended for strokeId: ${strokeId}`);
-    } else {
-      console.error("Invalid drawing data received:", drawing);
+    } catch (error) {
+      console.error('Error handling drawing data:', error);
     }
   });
-
+  
   // Clear all elements for a board
-  socket.on('clearCanvas', async ({ roomId }) => {
-    console.log(`Clear canvas for room ${roomId}`);
-    io.to(roomId).emit('clearCanvas', { roomId });
-  
-    const elementsRef = db.collection('boards').doc(roomId).collection('elements');
-    const batch = db.batch();
-  
+  socket.on('clearCanvas', async ({ boardId }) => {
+    console.log(`Clear canvas for board ${boardId}`);
+
     try {
-      // Delete elements
+      // Lookup board to get ownerId
+      const boardDoc = await db.collection('boards').doc(boardId).get();
+      if (!boardDoc.exists) {
+        console.error('Board not found:', boardId);
+        return;
+      }
+      const boardData = boardDoc.data();
+      const ownerId = boardData.ownerId;
+
+      // Emit to all clients in the room
+      io.to(boardId).emit('clearCanvas', { boardId });
+
+      // Delete all elements in the board's elements subcollection
+      const elementsRef = db.collection('users')
+        .doc(ownerId)
+        .collection('boards')
+        .doc(boardId)
+        .collection('elements');
+      const batch = db.batch();
+
       const elementsSnapshot = await elementsRef.get();
       elementsSnapshot.forEach((doc) => batch.delete(doc.ref));
-      console.log(`Strokes collection added to batch deletion for board ${roomId}`);
-  
-      // Commit batch
+
       await batch.commit();
-      console.log(`Elements deleted for board ${roomId}`);
-      
+      console.log(`Elements deleted for board ${boardId}`);
     } catch (error) {
-      console.error(`Failed to delete strokes or images collection for board ${roomId}:`, error);
+      console.error(`Failed to clear canvas for board ${boardId}:`, error);
     }
   });
-  
 
   socket.on('disconnect', (reason) => {
     console.log(`Client ${socket.id} disconnected due to ${reason}`);
@@ -149,9 +212,13 @@ io.on('connection', (socket) => {
 });
 
 // Create a new board
+
 app.post('/api/createBoard', async (req, res) => {
   const { userId, boardName } = req.body;
-  if (!userId || !boardName) return res.status(400).send('Missing userId or boardName');
+  if (!userId || !boardName) {
+    console.error('Missing userId or boardName');
+    return res.status(400).send('Missing userId or boardName');
+  }
 
   try {
     const boardId = uuidv4();
@@ -160,15 +227,18 @@ app.post('/api/createBoard', async (req, res) => {
       name: boardName,
       ownerId: userId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      members: [userId],
+      members: [userId], // Include the owner in the members array
     };
 
-    await db.collection('boards').doc(boardId).set(boardData);
+    console.log(`Creating board with ID: ${boardId} for user: ${userId}`);
 
-    await db.collection('users').doc(userId).set(
-      { boards: admin.firestore.FieldValue.arrayUnion(boardId) },
-      { merge: true }
-    );
+    // Add to top-level 'boards' collection
+    await db.collection('boards').doc(boardId).set(boardData);
+    console.log(`Board ${boardId} added to top-level 'boards' collection`);
+
+    // Add to user's boards subcollection
+    await db.collection('users').doc(userId).collection('boards').doc(boardId).set(boardData);
+    console.log(`Board ${boardId} added to user ${userId}'s 'boards' subcollection`);
 
     res.status(200).send({ boardId });
   } catch (error) {
@@ -177,26 +247,79 @@ app.post('/api/createBoard', async (req, res) => {
   }
 });
 
+
+
+
 // Join an existing board
 app.post('/api/joinBoard', async (req, res) => {
   const { userId, boardId } = req.body;
   if (!userId || !boardId) return res.status(400).send('Missing userId or boardId');
 
   try {
-    const boardRef = db.collection('boards').doc(boardId);
-    const boardSnapshot = await boardRef.get();
+    // Lookup board in top-level 'boards' collection
+    const boardDoc = await db.collection('boards').doc(boardId).get();
+    if (!boardDoc.exists) return res.status(404).send('Board not found');
 
-    if (!boardSnapshot.exists) return res.status(404).send('Board not found');
+    const boardData = boardDoc.data();
+    const ownerId = boardData.ownerId;
 
-    await boardRef.update({ members: admin.firestore.FieldValue.arrayUnion(userId) });
-    await db.collection('users').doc(userId).set(
-      { boards: admin.firestore.FieldValue.arrayUnion(boardId) },
-      { merge: true }
-    );
+    // Prevent the owner from joining as a spectator
+    if (ownerId === userId) {
+      return res.status(400).send('Owner already has access to the board');
+    }
+
+    // Add user to the board's members in the top-level 'boards' collection
+    await db.collection('boards').doc(boardId).update({
+      members: admin.firestore.FieldValue.arrayUnion(userId),
+    });
+
+    // Add board to user's boards subcollection as a member
+    await db.collection('users').doc(userId).collection('boards').doc(boardId).set(boardData);
 
     res.status(200).send('Joined board successfully');
   } catch (error) {
     console.error('Error joining board:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+
+// Additional API: Leave a board
+app.post('/api/leaveBoard', async (req, res) => {
+  const { userId, boardId } = req.body;
+  if (!userId || !boardId) return res.status(400).send('Missing userId or boardId');
+
+  try {
+    // Lookup board in top-level 'boards' collection
+    const boardDoc = await db.collection('boards').doc(boardId).get();
+    if (!boardDoc.exists) return res.status(404).send('Board not found');
+
+    const boardData = boardDoc.data();
+    const ownerId = boardData.ownerId;
+
+    if (!ownerId || typeof ownerId !== 'string') {
+      console.error('Invalid ownerId:', ownerId);
+      return;
+    }
+    
+    // Prevent owner from leaving their own board
+    if (ownerId === userId) {
+      return res.status(400).send('Owner cannot leave their own board');
+    }
+
+    // Remove user from the board's members in the top-level 'boards' collection
+    await db.collection('boards').doc(boardId).update({
+      members: admin.firestore.FieldValue.arrayRemove(userId),
+    });
+
+    // Remove board from user's boards subcollection
+    await db.collection('users').doc(ownerId).collection('boards').doc(boardId).update({
+      members: admin.firestore.FieldValue.arrayRemove(userId),
+    });
+
+    res.status(200).send('Left board successfully');
+  } catch (error) {
+    console.error('Error leaving board:', error);
     res.status(500).send('Internal Server Error');
   }
 });

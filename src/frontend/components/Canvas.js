@@ -21,6 +21,9 @@ import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
 import { IoCloseSharp } from "react-icons/io5";
 
+//for boardId
+import { useParams } from 'react-router-dom'; 
+
 import Chatbot from './Chatbot';
 import { sendExternalMessage } from './Chatbot';
 import Tesseract from 'tesseract.js';
@@ -51,7 +54,7 @@ const hexToRGBA = (hex, opacity) => {
 
 
 // Custom hook for managing the socket connection
-const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
+const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   const socketRef = useRef(null);
   const auth = getAuth();
   const navigate = useNavigate();
@@ -79,8 +82,8 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
         console.log('Socket initialized:', socketRef.current);
 
         // Join the specified board (room)
-        socketRef.current.emit('joinBoard', { boardId: roomId });
-        console.log('Emitted joinBoard event for roomId:', roomId);
+        socketRef.current?.emit('joinBoard', { boardId });
+        console.log('Emitted joinBoard event for boardId:', boardId);
 
         // Listen for initial drawings from the server
         socketRef.current.on('loadDrawings', (drawings) => {
@@ -95,11 +98,11 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
         });
 
         // Listen for canvas clear events
-        socketRef.current.on('clearCanvas', ({ roomId: incomingRoomId }) => {
-          console.log('Received clearCanvas event for roomId:', incomingRoomId);
-          if (incomingRoomId === roomId) {
+        socketRef.current.on('clearCanvas', ({ boardId }) => {
+          console.log('Received clearCanvas event for boardId:', boardId);
+          
             onClearCanvas();
-          }
+          
         });
       } catch (error) {
         console.error('Error initializing socket:', error);
@@ -122,7 +125,7 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
       socketRef.current?.disconnect();
       unsubscribe();
     };
-  }, [roomId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
+  }, [boardId, auth, navigate, onReceiveDrawing, onClearCanvas, onLoadDrawings]);
 
 
   
@@ -134,16 +137,16 @@ const useSocket = (roomId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
   const broadcastDrawing = useCallback(
     (data) => {
       console.log('Broadcasting drawing data to server:', data);
-      socketRef.current?.emit('drawing', { boardId: roomId, drawing: data });
+      socketRef.current?.emit('drawing', { boardId, drawing: data });
     },
-    [roomId]
+    [boardId]
   );
 
   // Function to notify the server to clear the canvas
   const clearCanvas = useCallback(() => {
-    console.log('Emitting clearCanvas event for roomId:', roomId);
-    socketRef.current?.emit('clearCanvas', { roomId });
-  }, [roomId]);
+    console.log('Emitting clearCanvas event for boardId:', boardId);
+    socketRef.current?.emit('clearCanvas', { boardId });
+  }, [boardId]);
 
   return { broadcastDrawing, clearCanvas };
 };
@@ -743,7 +746,13 @@ try {
 
 // Main Canvas component
 const Canvas = forwardRef(
-  ({ roomId, brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },ref) => {
+  ({ brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },ref) => {
+
+
+    // Valid boardId for desk access
+    const { boardId } = useParams();
+   
+
     const [isLoading, setIsLoading] = useState(true); // State to track loading status
     const [initialDrawings, setInitialDrawings] = useState([]); // State for initial drawings
 
@@ -764,6 +773,9 @@ const Canvas = forwardRef(
     const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
     const [numPages, setNumPages] = useState(null);
     const [isListVisible, setListVisible] = useState(false);
+
+    // Share Link State
+    const [isShareLinkModalVisible, setIsShareLinkModalVisible] = useState(false);
     
 
     const handleBlur = (e) => {
@@ -792,6 +804,11 @@ const toggleCaptureMode = () => {
 
 
     const fileInputRef = useRef(null);
+
+        // Function to toggle the share link modal
+        const toggleShareLinkModal = () => {
+          setIsShareLinkModalVisible(!isShareLinkModalVisible);
+        };
 
     // State for upload menu
    const [isUploadMenuVisible, setIsUploadMenuVisible] = useState(false);
@@ -855,7 +872,7 @@ const toggleCaptureMode = () => {
     
     const handleBrowseFiles = async () => {
       const firestore = getFirestore();
-      const filesCollectionRef = collection(firestore, 'boards', roomId, 'files');
+      const filesCollectionRef = collection(firestore, 'boards', boardId, 'files');
 
       try {
         const querySnapshot = await getDocs(filesCollectionRef);
@@ -882,7 +899,7 @@ const toggleCaptureMode = () => {
       const storage = getStorage();
       const timestamp = Date.now();
       const filename = file.name;
-      const formattedFilename = `${timestamp}_${roomId}_${filename}`;
+      const formattedFilename = `${timestamp}_${boardId}_${filename}`;
       const filePath = `pdfs/${formattedFilename}`; // Storing in 'pdfs' folder
     
       // Create a storage reference
@@ -915,7 +932,7 @@ const toggleCaptureMode = () => {
     
       try {
         // Reference to the 'files' collection under the specific board
-        const filesCollectionRef = collection(firestore, 'boards', roomId, 'files');
+        const filesCollectionRef = collection(firestore, 'boards', boardId, 'files');
     
         // Use the formatted filename as the document ID
         await setDoc(doc(filesCollectionRef, formattedFilename), fileData);
@@ -1030,7 +1047,12 @@ const toggleCaptureMode = () => {
     const handleLoadDrawings = useCallback(
       async (elements) => {
         console.log('handleLoadDrawings called with elements:', elements);
-
+    
+        if (!Array.isArray(elements)) {
+          console.error('Received elements is not an array:', elements);
+          return;
+        }
+    
         // Process elements sequentially, awaiting each addition
         for (const element of elements) {
           await addDrawingToCanvas(element);
@@ -1038,11 +1060,12 @@ const toggleCaptureMode = () => {
       },
       [addDrawingToCanvas]
     );
+    
 
     
     // Initialize the socket connection
     const { broadcastDrawing, clearCanvas: clearSocketCanvas } = useSocket(
-      roomId,
+      boardId,
       handleReceiveDrawing,
       handleClearCanvas,
       handleLoadDrawings
@@ -1109,6 +1132,9 @@ const toggleCaptureMode = () => {
     }, []);
 
     if (isLoading) return <div>Loading canvas...</div>;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////
 
     return (
       <div className={styles.boardContainer}>
@@ -1186,6 +1212,46 @@ const toggleCaptureMode = () => {
           >
             🖍️ Highlighter
           </button>
+
+          {/* Share Link Button */}
+          <button
+            className={styles.toolButton}
+            onClick={toggleShareLinkModal} // Function to open the share link modal
+            >
+           Share Link
+          </button>
+          {/* Share Link Modal */}
+{isShareLinkModalVisible && (
+  <div className={styles.modalOverlay}>
+    <div className={styles.modalContent}>
+      <h2>Share This Board</h2>
+      <input
+        type="text"
+        readOnly
+        value={boardId}
+        className={styles.shareLinkInput}
+      />
+      <button
+        className={styles.copyButton}
+        onClick={() => {
+          navigator.clipboard.writeText(boardId);
+          alert('Board ID copied to clipboard!');
+        }}
+      >
+        Copy Link
+      </button>
+      <button
+        className={styles.closeButton}
+        onClick={toggleShareLinkModal}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
+
+          
             
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>

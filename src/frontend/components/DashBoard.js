@@ -1,3 +1,5 @@
+// Dashboard.js
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, signOut, updateProfile } from 'firebase/auth';
@@ -29,23 +31,40 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
     // Cleanup on unmount
     return unsubscribe;
   }, [auth]);
-  
-  
 
   const handleCreateBoard = async () => {
     const boardName = prompt('Enter board name');
     if (boardName && user) {
       try {
-        const response = await fetch('/api/createBoard', {
+        const response = await fetch('/api/createBoard', { // Relative URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.uid, boardName }),
         });
-        const { boardId } = await response.json();
-        console.log('Board created with ID:', boardId);
-        onHostNewBoard(); // Notify parent component
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Response from createBoard:', data);
+          const { boardId } = data;
+          console.log('Board created with ID:', boardId);
+
+          // Create the new board object
+          const newBoard = {
+            boardId,
+            name: boardName,
+            ownerId: user.uid,
+            // Add other necessary fields if required
+          };
+
+          // Notify parent component with the new board
+          onHostNewBoard(newBoard);
+        } else {
+          const errorMsg = await response.text();
+          console.error('Error creating board:', errorMsg);
+          alert(`Error creating board: ${errorMsg}`);
+        }
       } catch (error) {
         console.error('Error creating board:', error);
+        alert('Failed to create board. Please try again.');
       }
     }
   };
@@ -53,7 +72,7 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
   const handleJoinBoard = async (boardId) => {
     if (boardId && user) {
       try {
-        const response = await fetch('/api/joinBoard', {
+        const response = await fetch('/api/joinBoard', { // Relative URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.uid, boardId }),
@@ -61,13 +80,16 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
         if (response.ok) {
           console.log('Joined board successfully');
           navigate(`/boards/${boardId}`);
+        } else {
+          const errorMsg = await response.text();
+          console.error('Error joining board:', errorMsg);
+          alert(`Error joining board: ${errorMsg}`);
         }
       } catch (error) {
         console.error('Error joining board:', error);
       }
     }
   };
-  
 
   const handleSignOut = () => {
     signOut(auth)
@@ -95,14 +117,35 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
   };
 
   const startEditingBoard = (board) => {
-    setEditingBoardId(board.id);
+    setEditingBoardId(board.boardId); // Adjusted to match new board structure
     setEditedBoardName(board.name);
   };
 
-  const saveBoardName = (boardId) => {
-    onEditBoard(boardId, editedBoardName);
-    setEditingBoardId(null);
-    setEditedBoardName('');
+  const saveBoardName = async (boardId) => {
+    if (!editedBoardName.trim()) {
+      alert('Board name cannot be empty');
+      return;
+    }
+
+    try {
+      // Assuming there's an API endpoint to edit board name
+      const response = await fetch('/api/editBoard', { // Relative URL
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, boardId, newName: editedBoardName }),
+      });
+      if (response.ok) {
+        onEditBoard(boardId, editedBoardName);
+        setEditingBoardId(null);
+        setEditedBoardName('');
+      } else {
+        const errorMsg = await response.text();
+        console.error('Error editing board:', errorMsg);
+        alert(`Error editing board: ${errorMsg}`);
+      }
+    } catch (error) {
+      console.error('Error editing board:', error);
+    }
   };
 
   return (
@@ -152,21 +195,21 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
         </div>
 
         <div className={styles.actionSection}>
-          <h4>My Existing Boards</h4>
+          <h4>My Boards</h4>
           <ul className={styles.boardList}>
             {boards.map((board) => (
-              <li key={board.id} className={styles.boardItem}>
-                {editingBoardId === board.id ? (
+              <li key={board.boardId} className={styles.boardItem}>
+                {editingBoardId === board.boardId ? (
                   <>
                     <input
                       type="text"
                       value={editedBoardName}
                       onChange={(e) => setEditedBoardName(e.target.value)}
-                      onBlur={() => saveBoardName(board.id)}
+                      onBlur={() => saveBoardName(board.boardId)}
                       className={styles.editInput}
                       autoFocus
                     />
-                    <button onClick={() => saveBoardName(board.id)} className={styles.saveButton}>
+                    <button onClick={() => saveBoardName(board.boardId)} className={styles.saveButton}>
                       Save
                     </button>
                   </>
@@ -177,12 +220,23 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
                       <button onClick={() => startEditingBoard(board)} className={styles.modifyButton}>
                         Edit
                       </button>
-                      <button onClick={() => onDeleteBoard(board.id)} className={styles.deleteButton}>
+                      <button onClick={() => onDeleteBoard(board.boardId)} className={styles.deleteButton}>
                         Delete
                       </button>
-                      <button onClick={() => navigate(`/boards/${board.id}`)} className={styles.joinButton}>
-                        Enter
-                      </button>
+                      <button 
+  onClick={() => {
+    if (board.boardId) {
+      navigate(`/boards/${board.boardId}`);
+    } else {
+      console.error('boardId is undefined for board:', board);
+      alert('Unable to enter board. Please try again.');
+    }
+  }} 
+  className={styles.joinButton}
+>
+  Enter
+</button>
+
                     </div>
                   </>
                 )}
@@ -194,23 +248,22 @@ const Dashboard = ({ boards = [], onHostNewBoard, onEditBoard, onDeleteBoard }) 
         <div className={styles.actionSection}>
           <h4>Join Another User's Board</h4>
           <input
-  type="text"
-  placeholder="Enter Board ID"
-  className={styles.boardInput}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter') handleJoinBoard(e.target.value);
-  }}
-/>
-<button 
-  onClick={() => {
-    const boardId = document.querySelector(`.${styles.boardInput}`).value;
-    handleJoinBoard(boardId);
-  }}
-  className={styles.actionButton}
->
-  Join
-</button>
-
+            type="text"
+            placeholder="Enter Board ID"
+            className={styles.boardInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleJoinBoard(e.target.value);
+            }}
+          />
+          <button 
+            onClick={() => {
+              const boardId = document.querySelector(`.${styles.boardInput}`).value;
+              handleJoinBoard(boardId);
+            }}
+            className={styles.actionButton}
+          >
+            Join
+          </button>
         </div>
       </div>
     </div>

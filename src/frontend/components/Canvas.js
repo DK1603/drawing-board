@@ -21,6 +21,9 @@ import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
 import { IoCloseSharp } from "react-icons/io5";
 
+import { FaFont } from 'react-icons/fa';
+
+
 //for boardId
 import { useParams } from 'react-router-dom'; 
 
@@ -158,6 +161,8 @@ const useFabricCanvas = (
   selectedTool,
   eraserMode,
   brushOpacity,
+  brushColor,
+  textSize,
 ) => {
   const fabricCanvasRef = useRef(null); // Reference to the Fabric.js canvas instance
   const broadcastDrawingRef = useRef(null); // Reference to the broadcast function
@@ -166,9 +171,29 @@ const useFabricCanvas = (
   const selectedToolRef = useRef(selectedTool);
   const eraserModeRef = useRef(eraserMode);
 
+  const brushColorRef = useRef(brushColor);
+  const textSizeRef = useRef(textSize);
+
+  // Preserve strokeId during cloning and serialization
+  fabric.Object.prototype.toObject = (function (toObject) {
+    return function () {
+      return fabric.util.object.extend(toObject.call(this), {
+        strokeId: this.strokeId,
+      });
+    };
+  })(fabric.Object.prototype.toObject);
+
+  
+  useEffect(() => {
+    brushColorRef.current = brushColor;
+  }, [brushColor]);
+  
+  useEffect(() => {
+    textSizeRef.current = textSize;
+  }, [textSize]);
+
   fabric.Object.prototype.stateProperties.push('strokeId');
-
-
+  
 /*tesseract
 useEffect(() => {
     if (fabricCanvasRef.current) {
@@ -223,7 +248,7 @@ useEffect(() => {
 
   const addDrawingToCanvas = useCallback(
     (drawing) => {
-      const { strokeId, type, imageData, left, top, scaleX, scaleY } = drawing;
+      const { strokeId, type, imageData, left, top, scaleX, scaleY, points } = drawing;
       
       if (!type) {
         console.warn('Received drawing without type:', drawing);
@@ -232,124 +257,151 @@ useEffect(() => {
 
       console.log("Received element type:", type);
 
-      if (type === 'Image') {
-        return new Promise((resolve, reject) => {
-          console.log("Add image");
-          const imgElement = new Image();
-  
-          imgElement.onload = () => {
-            const img = new fabric.Image(imgElement, {
-              left,
-              top,
-              scaleX,
-              scaleY,
-              strokeId,
-              selectable: true,
-            });
-            fabricCanvasRef.current.add(img);
-            console.log("Render Image");
-            fabricCanvasRef.current.requestRenderAll();
-            resolve(); // Resolve the Promise after the image is added
-          };
-  
-          imgElement.onerror = (error) => {
-            console.error('Error loading image:', error);
-            resolve(); // Resolve even on error to continue processing
-          };
-  
-          imgElement.src = imageData;
-        });
-      } 
-      else if (type === 'draw') {
-        // Handle real-time drawing updates with temporary strokes
-        const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
-        if (points && points.length > 0) {
-          let polyline = ongoingStrokes.current[strokeId];
-          if (!polyline) {
-            // Create a new temporary polyline
-            polyline = new fabric.Polyline([], {
-              stroke: isErasing ? 'white' : stroke,
-              strokeWidth,
-              fill: null,
-              selectable: false,
-              evented: false, // Temporary strokes are not evented
-              strokeLineCap: 'round',
-              strokeLineJoin: 'round',
-            });
-            polyline.strokeId = strokeId;
-            ongoingStrokes.current[strokeId] = polyline;
-            fabricCanvasRef.current.add(polyline);
-          }
-  
-          // Append new points to the polyline
-          const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
-          polyline.points = polyline.points.concat(newPoints);
-  
-          // Update object's coordinates
-          polyline.setCoords();
-  
-          // Mark the object as dirty and request a render
-          polyline.set({
-            dirty: true,
-            objectCaching: false,
-          });
-          fabricCanvasRef.current.requestRenderAll();
-        }
+    const existingObject = fabricCanvasRef.current
+      .getObjects()
+      .find((o) => o.strokeId === strokeId);
 
-      } else if (type === 'stroke') {
-        // Finalize the stroke by replacing the temporary stroke
-        const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
-  
+    if (existingObject && type !== 'draw') {
+        // Modify the existing object
+        console.log("Deleating existing object:", strokeId);
+
+        fabricCanvasRef.current.remove(existingObject);
+        fabricCanvasRef.current.renderAll();
+    }
+
+
+    if (type === 'Image') {
+      return new Promise((resolve, reject) => {
+        console.log("Add image");
+        const imgElement = new Image();
+
+        imgElement.onload = () => {
+          const img = new fabric.Image(imgElement, {
+            left,
+            top,
+            scaleX,
+            scaleY,
+            strokeId,
+            selectable: true,
+          });
+          fabricCanvasRef.current.add(img);
+          console.log("Render Image");
+          fabricCanvasRef.current.requestRenderAll();
+          resolve(); // Resolve the Promise after the image is added
+        };
+
+        imgElement.onerror = (error) => {
+          console.error('Error loading image:', error);
+          resolve(); // Resolve even on error to continue processing
+        };
+
+        imgElement.src = imageData;
+      });
+    } else if (type === 'draw') {
+      // Handle real-time drawing updates with temporary strokes
+      const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
+      if (points && points.length > 0) {
         let polyline = ongoingStrokes.current[strokeId];
-        if (polyline) {
-          // Remove the temporary stroke
-          fabricCanvasRef.current.remove(polyline);
-          delete ongoingStrokes.current[strokeId];
-        }
-  
-        if (points && points.length > 0) {
-          const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
-          const finalizedPolyline = new fabric.Polyline(pointArray, {
+        if (!polyline) {
+          // Create a new temporary polyline
+          polyline = new fabric.Polyline([], {
             stroke: isErasing ? 'white' : stroke,
             strokeWidth,
             fill: null,
             selectable: false,
-            evented: true, // Finalized strokes are evented
+            evented: false, // Temporary strokes are not evented
             strokeLineCap: 'round',
             strokeLineJoin: 'round',
           });
-          finalizedPolyline.strokeId = strokeId;
-          fabricCanvasRef.current.add(finalizedPolyline);
-          console.log("Render strokes");
-          fabricCanvasRef.current.renderAll();
+          polyline.strokeId = strokeId;
+          ongoingStrokes.current[strokeId] = polyline;
+          fabricCanvasRef.current.add(polyline);
         }
-        return Promise.resolve();
-      } else if (type === 'delete') {
-        // Handle deletion of stroke
-        console.log('Received delete event for strokeId:', strokeId);
-        const objects = fabricCanvasRef.current.getObjects();
-        const target = objects.find((obj) => obj.strokeId === strokeId);
-  
-        if (target) {
-          fabricCanvasRef.current.remove(target);
-          fabricCanvasRef.current.renderAll();
-        }
-        return Promise.resolve();
 
-      } 
-      else {
-        console.warn('Invalid drawing data received:', drawing);
+        // Append new points to the polyline
+        const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
+        polyline.points = polyline.points.concat(newPoints);
+
+        // Update object's coordinates
+        polyline.setCoords();
+
+        // Mark the object as dirty and request a render
+        polyline.set({
+          dirty: true,
+          objectCaching: false,
+        });
+        fabricCanvasRef.current.requestRenderAll();
       }
+
+    } else if (type === 'stroke') {
+      // Finalize the stroke by replacing the temporary stroke
+      const { points, stroke, strokeWidth, isErasing, opacity, left, top } = drawing;
+
+      let polyline = ongoingStrokes.current[strokeId];
+      if (polyline) {
+        // Remove the temporary stroke
+        fabricCanvasRef.current.remove(polyline);
+        delete ongoingStrokes.current[strokeId];
+      }
+
+
+      if (points && points.length > 0) {
+        const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
+        const finalizedPolyline = new fabric.Polyline(pointArray, {
+          left: left,
+          top: top,
+          leftGlobal: left,
+          topGlobal: top,
+          stroke: isErasing ? 'white' : stroke,
+          strokeWidth,
+          fill: null,
+          selectable: false,
+          evented: true, // Finalized st  rokes are evented
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+        });
+        finalizedPolyline.strokeId = strokeId; // Assign strokeId
+        finalizedPolyline.selectable = true;   // Ensure selectable
+        finalizedPolyline.evented = true;      // Ensure evented
+        fabricCanvasRef.current.add(finalizedPolyline);
+        fabricCanvasRef.current.renderAll();
+
+        console.log("leftG, topG:", finalizedPolyline.leftGlobal, finalizedPolyline.topGlobal);
+      }
+      return Promise.resolve();
+    } else if (type === 'delete') {
+      // Handle deletion of stroke
+      console.log('Received delete event for strokeId:', strokeId);
+      const objects = fabricCanvasRef.current.getObjects();
+      const target = objects.find((obj) => obj.strokeId === strokeId);
+
+      if (target) {
+        fabricCanvasRef.current.remove(target);
+        fabricCanvasRef.current.renderAll();
+      }
+      return Promise.resolve();
+
+    } else if (type === 'text') {
+      const { text: textContent, left, top, fill, fontSize, strokeId } = drawing;
+      const newText = new fabric.IText(textContent, {
+        left,
+        top,
+        fill,
+        fontSize,
+        selectable: false,
+        evented: true,
+      });
+      newText.strokeId = strokeId;
+      fabricCanvasRef.current.add(newText);
+      fabricCanvasRef.current.renderAll();
+    } else {
+      console.warn('Invalid drawing data received:', drawing);
+    }
     },
     [fabricCanvasRef]
   );
   
   
-  
-  
-  
-  
-
   // Function to clear the canvas
   const clearCanvas = useCallback(() => {
     console.log('Clearing canvas');
@@ -357,36 +409,80 @@ useEffect(() => {
   }, []);
 
   // Function to update canvas properties based on the selected tool
-  const updateCanvasProperties = useCallback(() => {
-    if (fabricCanvasRef.current) {
-      const tool = selectedToolRef.current;
-      const eMode = eraserModeRef.current;
+  const updateCanvasProperties = () => {
+  if (fabricCanvasRef.current) {
+    const tool = selectedToolRef.current;
+    const eMode = eraserModeRef.current;
 
-      if (tool === 'brush') {
+    if (tool === 'brush') {
+      fabricCanvasRef.current.isDrawingMode = true;
+      fabricCanvasRef.current.selection = false; // Disable group selection
+      fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
+
+      // Make all objects not selectable
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'default'; // Ensure cursor doesn't change
+      });
+    } else if (tool === 'eraser') {
+      if (eMode === 'whiteEraser') {
         fabricCanvasRef.current.isDrawingMode = true;
-        fabricCanvasRef.current.selection = false; // Disable selection
-        fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
-      } else if (tool === 'eraser') {
-        if (eMode === 'whiteEraser') {
-          fabricCanvasRef.current.isDrawingMode = true;
-          fabricCanvasRef.current.selection = false; // Disable selection
-          fabricCanvasRef.current.defaultCursor = 'crosshair'; // Eraser cursor
-        } else if (eMode === 'strokeEraser') {
-          fabricCanvasRef.current.isDrawingMode = false;
-          fabricCanvasRef.current.selection = false; // Disable selection
-          fabricCanvasRef.current.defaultCursor = 'not-allowed'; // Eraser cursor
-        }
-      } else {
+        fabricCanvasRef.current.selection = false; // Disable group selection
+        fabricCanvasRef.current.defaultCursor = 'crosshair'; // Eraser cursor
+
+        // Make all objects not selectable
+        fabricCanvasRef.current.forEachObject((obj) => {
+          obj.selectable = false;
+        });
+      } else if (eMode === 'strokeEraser') {
         fabricCanvasRef.current.isDrawingMode = false;
-        fabricCanvasRef.current.selection = false; // Disable selection
-        fabricCanvasRef.current.defaultCursor = 'default'; // Default cursor
+        fabricCanvasRef.current.selection = false; // Disable group selection
+        fabricCanvasRef.current.defaultCursor = 'not-allowed'; // Eraser cursor
+
+        // Make all objects not selectable
+        fabricCanvasRef.current.forEachObject((obj) => {
+          obj.selectable = false;
+        });
       }
+    } else if (tool === 'text') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false; // Disable group selection
+      fabricCanvasRef.current.defaultCursor = 'text'; // Text cursor
+
+      // Make all objects not selectable
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'text'; // Keep cursor as text
+      });
+    } else if (tool === 'select') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false;
+      fabricCanvasRef.current.defaultCursor = 'default';
+
+      // Update objects to be selectable and evented
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = true;
+        obj.evented = true;
+        obj.hoverCursor = 'move';
+      });
+
+
+    } else {
+      // Default case or selection tool
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false;
+      fabricCanvasRef.current.defaultCursor = 'default'; 
     }
-  }, []);
+  }
+};
+
+
 
 useEffect(() => {
   updateCanvasProperties();
-}, [selectedTool, eraserMode, updateCanvasProperties]);
+}, [selectedTool, eraserMode]);
 
   // Initialize the Fabric.js canvas and set up event handlers
   useEffect(() => {
@@ -406,6 +502,102 @@ useEffect(() => {
       let currentStrokeId = null;
       let lastSentTime = 0; // Timestamp for throttling
 
+
+ 
+      let startGroupTransform = { left: 0, top: 0, scaleX: 1, scaleY: 1 };
+
+      //preapares object for selections
+      const processAndBroadcastObject = (obj, broadcastFn) => {
+        if (!obj.strokeId) {
+          console.warn("Object has no strokeId:", obj);
+          return;
+        }
+      
+        const modifiedData = {
+          strokeId: obj.strokeId,
+          stroke: obj.stroke || null,
+          strokeWidth: obj.strokeWidth || null,
+          left: obj.left || 0, // Use the object's local position
+          top: obj.top || 0,
+          scaleX: obj.scaleX || 1,
+          scaleY: obj.scaleY || 1,
+          timestamp: Date.now(),
+        };
+      
+        // Add type-specific properties
+        if (obj.type === "polyline") {
+          modifiedData.points = obj.points
+            ? obj.points.map((point) => ({
+                x: point.x * obj.scaleX + modifiedData.left,
+                y: point.y * obj.scaleY + modifiedData.top,
+              }))
+            : [];
+          modifiedData.type = "stroke";
+        } else if (obj.type === "path") {
+          modifiedData.points = obj.rawPoints || [];
+          modifiedData.type = "stroke";
+        } else if (obj.type === "i-text") {
+          modifiedData.text = obj.text || "";
+          modifiedData.fontSize = obj.fontSize || null;
+          modifiedData.fill = obj.fill || null;
+          modifiedData.type = "text";
+        } else {
+          console.warn("Unsupported object type for processing:", obj.type);
+          return;
+        }
+      
+        // Broadcast the data
+        console.log("Broadcasting modified data:", modifiedData);
+        broadcastFn(modifiedData);
+      };
+      
+      //changes selected objects
+      const handleObjectModified = (event) => {
+        const obj = event.target;
+        if (!obj) return;
+      
+        console.log("Object modified:", obj);
+      
+        const broadcastFn = broadcastDrawingRef.current || (() => {});
+      
+        // Process a single object
+        processAndBroadcastObject(obj, broadcastFn);
+      
+        // Render the canvas to apply changes
+        fabricCanvasRef.current.renderAll();
+      };
+    
+      fabricCanvasRef.current.on('object:modified:before', (event) => {
+        const obj = event.target;
+        if (!obj) return;
+      
+        startGroupTransform = {
+          left: obj.left || 0,
+          top: obj.top || 0,
+          scaleX: obj.scaleX || 1,
+          scaleY: obj.scaleY ||  1,
+        };
+      
+        console.log('Captured initial group transform:', startGroupTransform);
+      });
+      
+      fabricCanvasRef.current.on('object:modified', handleObjectModified);
+
+      fabricCanvasRef.current.on('selection:created', (e) => {
+        console.log("In drag");
+        if (e.target && e.target.bringToFront) {
+          e.target.bringToFront();
+        } else if (e.target && e.target.type === 'activeSelection') {
+          // Bring all objects in the active selection to front
+          e.target.forEachObject((obj) => {
+            if (obj.bringToFront) {
+              obj.bringToFront();
+            }
+          });
+        }
+        console.log("Element", e);
+      });
+      
       // Mouse down event
       fabricCanvasRef.current.on('mouse:down', (opt) => {
         console.log('mouse:down event fired');
@@ -431,7 +623,46 @@ useEffect(() => {
             // Initialize the set of deleted strokes
             deletedStrokeIdsRef.current = new Set();
           }
+        } else if (tool === 'text') {
+          const textId = `${Date.now()}_${uuidv4()}`
+          console.log("Color: ", brushColorRef.current);
+          const pointer = fabricCanvasRef.current.getPointer(opt.e);
+          const text = new fabric.IText('', {
+            left: pointer.x,
+            top: pointer.y,
+            fill: brushColorRef.current || '#000000',    
+            fontSize: textSizeRef.current || 20,  
+            selectable: true,
+            evented: true,
+            hoverCursor: 'text',
+            strokeId: `${Date.now()}_${uuidv4()}`,
+          });
+          fabricCanvasRef.current.add(text);
+          fabricCanvasRef.current.setActiveObject(text);
+          text.enterEditing(); // Puts the text object into editing mode
+      
+          // Handle when the user exits text editing
+          text.on('editing:exited', () => {
+            const textData = {
+              strokeId: text.strokeId,
+              type: 'text',
+              text: text.text,
+              left: text.left,
+              top: text.top,
+              fill: text.fill,
+              fontSize: text.fontSize,
+            };
+            if (broadcastDrawingRef.current) {
+              broadcastDrawingRef.current(textData);
+            }
+            // Remove the event listener to prevent multiple broadcasts
+            text.selectable = true;
+            text.evented = true;
+            text.hoverCursor = 'text';
+            text.off('editing:exited');
+          });
         }
+      
       });
 
       // Mouse move event
@@ -473,7 +704,7 @@ useEffect(() => {
           const target = fabricCanvasRef.current.findTarget(event, true);
           if(target){
             const type = target.type;
-            //console.log("FOUND THIS !!!",type , target.strokleId ,target); //DEBUG TOOL
+            console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
             if(type !== "polyline" && type !== "path" ){
               console.log(type);  
               return;
@@ -513,12 +744,18 @@ useEffect(() => {
             // Send the entire stroke to the server for saving
             const brush = fabricCanvasRef.current.freeDrawingBrush;
             const rgbaColor = brush.color; 
+
+            const minX = Math.min(...collectedPoints.map(p => p.x));
+            const minY = Math.min(...collectedPoints.map(p => p.y));
+
             const strokeData = {
               strokeId: currentStrokeId,
               type: 'stroke',
               points: collectedPoints,
               stroke: rgbaColor,
               strokeWidth: brush.width,
+              left: minX,
+              top: minY,  
               isErasing: brush._isErasing || false,
             };
 
@@ -535,10 +772,14 @@ useEffect(() => {
       // After the 'mouse:up' event handler
       fabricCanvasRef.current.on('path:created', (opt) => {
         const path = opt.path;
-        path.strokeId = currentStrokeId; // Assign the current strokeId to the path
+        path.strokeId = currentStrokeId;
+        path.selectable = true; // Ensure strokes are selectable
+        path.evented = true;    // Ensure strokes are evented
+        path.rawPoints = collectedPoints;
+        path.leftGlobal = path.left || 0;
+        path.topGlobal = path.top || 0;
         console.log('path:created, assigned strokeId:', currentStrokeId, 'to path:', path);
       });
-
 
       // Load any initial drawings onto the canvas
       if (initialDrawings && initialDrawings.length > 0) {
@@ -551,8 +792,9 @@ useEffect(() => {
         fabricCanvasRef.current.off('mouse:down');
         fabricCanvasRef.current.off('mouse:move');
         fabricCanvasRef.current.off('mouse:up');
-          fabricCanvasRef.current.off('path:created');
-
+        fabricCanvasRef.current.off('path:created');
+        fabricCanvasRef.current.off('selection:created');
+        fabricCanvasRef.current.off('object:modified', handleObjectModified);
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
         console.log('Fabric.js canvas disposed');
@@ -578,8 +820,6 @@ useEffect(() => {
     setBroadcastDrawing,
   };
 };
-
-
 
 
 
@@ -773,6 +1013,11 @@ const Canvas = forwardRef(
     const [isPdfPreviewVisible, setIsPdfPreviewVisible] = useState(false);
     const [numPages, setNumPages] = useState(null);
     const [isListVisible, setListVisible] = useState(false);
+
+    // Text and Selector
+    const [isTextOptionsVisible, setIsTextOptionsVisible] = useState(false);
+    const [textSize, setTextSize] = useState(20); // Default text size
+
 
     // Share Link State
     const [isShareLinkModalVisible, setIsShareLinkModalVisible] = useState(false);
@@ -1211,6 +1456,42 @@ const toggleCaptureMode = () => {
             }}
           >
             🖍️ Highlighter
+          </button>
+
+           {/* Text Button */}
+           <button
+            className={`${styles.toolButton} ${selectedTool === 'text' ? styles.activeTool : ''}`}
+            onClick={() => {
+              setSelectedTool('text');
+              setIsTextOptionsVisible(!isTextOptionsVisible);
+              console.log('Text tool selected');
+            }}
+          >
+            <FaFont style={{ marginRight: '8px' }} /> Text
+          </button>
+
+          {isTextOptionsVisible && selectedTool === 'text' && (
+            <div className={styles.textOptions}>
+              <label></label>
+              <input
+                type="number"
+                value={textSize}
+                onChange={(e) => setTextSize(parseInt(e.target.value))}
+              />
+              <button onClick={() => setIsTextOptionsVisible(false)}>Done</button>
+            </div>
+          )}
+
+            {/* Select Tool Button */}
+          <button
+            className={`${styles.toolButton} ${selectedTool === 'select' ? styles.activeTool : ''}`}
+            onClick={() => {
+              setSelectedTool('select');
+              console.log('Select tool selected');
+            }}
+          >
+            {/* Replace with appropriate icon */}
+            🖱️ Select
           </button>
 
           {/* Share Link Button */}

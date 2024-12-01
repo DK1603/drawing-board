@@ -143,33 +143,80 @@ io.on('connection', (socket) => {
   
       const elementsRef = db.collection('users').doc(ownerId).collection('boards').doc(boardId).collection('elements');
   
-      if (type === 'Image') {
-        const imageDoc = elementsRef.doc(strokeId);
-        await imageDoc.set({
+    // Handle different types of drawing actions
+    switch (type) {
+      case 'Image':
+        // Save Image Element
+        await elementsRef.doc(strokeId).set({
           ...drawing,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
         console.log(`Image saved successfully with strokeId: ${strokeId}`);
-      } else if (type === 'stroke' && points?.length > 0) {
-        const strokeRef = elementsRef.doc(strokeId);    
-        await strokeRef.set({
+        break;
+
+      case 'stroke':
+        // Save Stroke Element
+        if (points && points.length > 0) {
+          await elementsRef.doc(strokeId).set({
+            ...drawing,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
+        } else {
+          console.warn('Stroke received without points:', drawing);
+        }
+        break;
+
+      case 'text':
+        // Save Text Element
+        await elementsRef.doc(strokeId).set({
           ...drawing,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`Stroke saved successfully with strokeId: ${strokeId}`);
-      } else if (type === 'delete' && strokeId) {
-        const strokeRef = elementsRef.doc(strokeId);
-        await strokeRef.delete();
-        console.log(`Stroke deleted successfully with strokeId: ${strokeId}`);
-      } else if (type === 'end') {
+        console.log(`Text saved successfully with strokeId: ${strokeId}`);
+        break;
+
+      case 'modify':
+        // Modify Existing Element
+        if (strokeId) {
+          const elementRef = elementsRef.doc(strokeId);
+          const elementDoc = await elementRef.get();
+          if (elementDoc.exists) {
+            await elementRef.update({
+              ...drawing,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            console.log(`Element modified successfully with strokeId: ${strokeId}`);
+          } else {
+            console.warn(`Element to modify not found with strokeId: ${strokeId}`);
+          }
+        } else {
+          console.warn('Modify action received without strokeId:', drawing);
+        }
+        break;
+
+      case 'delete':
+        // Delete Stroke Element
+        if (strokeId) {
+          await elementsRef.doc(strokeId).delete();
+          console.log(`Stroke deleted successfully with strokeId: ${strokeId}`);
+        } else {
+          console.warn('Delete action received without strokeId:', drawing);
+        }
+        break;
+
+      case 'end':
+        // Log Stroke End (No action needed for Firestore)
         console.log(`Stroke ended for strokeId: ${strokeId}`);
-      } else {
-        console.error("Invalid drawing data received:", drawing);
-      }
-    } catch (error) {
-      console.error('Error handling drawing data:', error);
+        break;
+
+      default:
+        console.error('Invalid drawing type received:', type);
     }
-  });
+  } catch (error) {
+    console.error('Error handling drawing data:', error);
+  }
+});
   
   // Clear all elements for a board
   socket.on('clearCanvas', async ({ boardId }) => {

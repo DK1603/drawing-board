@@ -15,7 +15,7 @@ import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
-import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMouse, FaShareAlt } from "react-icons/fa";
+import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMouse, FaShareAlt, FaEllipsisH, FaCamera } from "react-icons/fa";
 import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
@@ -1057,6 +1057,13 @@ const Canvas = forwardRef(
     // Share Link State
     const [isShareLinkModalVisible, setIsShareLinkModalVisible] = useState(false);
 
+    const [isOptionsMenuVisible, setIsOptionsMenuVisible] = useState(false);
+
+      // Function to toggle the options menu
+  const toggleOptionsMenu = () => {
+    setIsOptionsMenuVisible((prev) => !prev);
+  };
+
     // Do-Undo
     const [undoStack, setUndoStack] = useState([]); // Stack to track undoable actions
     const [redoStack, setRedoStack] = useState([]); // Stack to track redoable actions
@@ -1146,6 +1153,9 @@ const Canvas = forwardRef(
 
     // State for upload menu
    const [isUploadMenuVisible, setIsUploadMenuVisible] = useState(false);
+
+   // sub menu for pdf
+   const [isUploadSubMenuVisible, setIsUploadSubMenuVisible] = useState(false);
 
     // State for files modal
     const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -1493,96 +1503,105 @@ const Canvas = forwardRef(
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    return (
-      <div className={styles.boardContainer}>
-        {/* Toolbar */}
-        <div className={styles.toolbar}>
-          {/* Brush Button */}
-          <button
-          className={`${styles.toolButton} ${selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''}`}
+return (
+  <div className={styles.boardContainer}>
+    {/* Toolbar */}
+    <div className={styles.toolbar}>
+      {/* Left Group: Drawing Tools */}
+      <div className={styles.toolbarGroup}>
+        {/* Draw Tool */}
+        <button
+          className={`${styles.toolButton} ${
+            selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''
+          }`}
           onClick={() => {
-              setSelectedTool('brush');
-              setEraserMode('none'); // Reset eraser mode
-              setBrushOpacity(1);
-              console.log('Brush tool selected');
-            }}
-          >
-            <FaPencilAlt style={{ marginRight: '8px' }} /> Draw
-          </button>
+            setSelectedTool('brush');
+            setEraserMode('none');
+            setBrushOpacity(1);
+            console.log('Brush tool selected');
+          }}
+          aria-pressed={selectedTool === 'brush' && brushOpacity === 1}
+          aria-label="Draw Tool"
+        >
+          <FaPencilAlt className={styles.icon} /> Draw
+        </button>
 
-          {/* Eraser Button */}
-          <button
-            className={`${styles.toolButton} ${selectedTool === 'eraser' ? styles.activeTool : ''}`}
-            onClick={() => {
-              setSelectedTool('eraser');
-              setIsEraserOptionsVisible(!isEraserOptionsVisible);
-              console.log('Eraser tool selected');
-            }}
-          >
-            <FaEraser style={{ marginRight: '8px' }} /> Erase
-          </button>
+        {/* Highlighter Tool */}
+        <button
+          className={`${styles.toolButton} ${
+            selectedTool === 'brush' && brushOpacity === 0.3 ? styles.activeTool : ''
+          }`}
+          onClick={() => {
+            setSelectedTool('brush');
+            setBrushOpacity(0.3);
+            console.log('Highlighter selected, opacity set to 0.3');
+          }}
+          aria-pressed={selectedTool === 'brush' && brushOpacity === 0.3}
+          aria-label="Highlighter Tool"
+        >
+          <FaHighlighter className={styles.icon} /> Highlighter
+        </button>
 
-          {/* Eraser Options */}
-          {isEraserOptionsVisible && selectedTool === 'eraser' && (
-            <div className={styles.eraserOptions}>
-              <button
-                className={styles.toolButtonWhite}
-                onClick={() => {
-                  setEraserMode('whiteEraser');
-                  setIsEraserOptionsVisible(false);
-                  console.log('White Eraser mode selected');
-                }}
-              >
-               <SiEraser style={{ marginRight: '8px' }} /> White
-              </button>
-              <button
-                className={styles.toolButtonStroke}
-                onClick={() => {
-                  setEraserMode('strokeEraser');
-                  setIsEraserOptionsVisible(false);
-                  console.log('Stroke Eraser mode selected');
-                }}
-              >
-               <BiSolidEraser style={{ marginRight: '8px' }} /> Stroke
-              </button>
-            </div>
-          )}
+        {/* Eraser Tool */}
+        <button
+          className={`${styles.toolButton} ${
+            selectedTool === 'eraser' ? styles.activeTool : ''
+          }`}
+          onClick={() => {
+            setSelectedTool('eraser');
+            setIsEraserOptionsVisible(!isEraserOptionsVisible);
+            console.log('Eraser tool selected');
+          }}
+          aria-pressed={selectedTool === 'eraser'}
+          aria-label="Eraser Tool"
+        >
+          <FaEraser className={styles.icon} /> Erase
+        </button>
 
-          {/* Clear Canvas Button */}
-          <button
-            className={styles.toolButton}
-            onClick={() => {
-              clearSocketCanvas();
-              console.log('Clear Canvas button clicked');
-            }}
-          >
-            <FaTrashCan style={{ marginRight: '8px' }} /> Clear Canvas
-          </button>
+        {/* Eraser Options */}
+        {isEraserOptionsVisible && selectedTool === 'eraser' && (
+          <div className={styles.eraserOptions}>
+            <button
+              className={styles.optionsMenuItem}
+              onClick={() => {
+                setEraserMode('whiteEraser');
+                setIsEraserOptionsVisible(false);
+                console.log('White Eraser mode selected');
+              }}
+              aria-label="White Eraser"
+            >
+              <SiEraser className={styles.icon} /> White
+            </button>
+            <button
+              className={styles.optionsMenuItem}
+              onClick={() => {
+                setEraserMode('strokeEraser');
+                setIsEraserOptionsVisible(false);
+                console.log('Stroke Eraser mode selected');
+              }}
+              aria-label="Stroke Eraser"
+            >
+              <BiSolidEraser className={styles.icon} /> Stroke
+            </button>
+          </div>
+        )}
 
-          <button
-            className={`${styles.toolButton} ${selectedTool === 'brush' && brushOpacity === 0.3 ? styles.activeTool : ''}`}
-            onClick={() => {
-              setSelectedTool('brush');
-              setBrushOpacity(0.3); // Set opacity to 0.3 for highlighter
-              console.log('Highlighter selected, opacity set to 0.3');
-            }}
-          >
-            <FaHighlighter style={{ marginRight: '8px' }} /> Highlighter
-          </button>
+        {/* Text Tool */}
+        <button
+          className={`${styles.toolButton} ${selectedTool === 'text' ? styles.activeTool : ''}`}
+          onClick={() => {
+            setSelectedTool('text');
+            setIsTextOptionsVisible(!isTextOptionsVisible);
+            console.log('Text tool selected');
+          }}
+          aria-pressed={selectedTool === 'text'}
+          aria-label="Text Tool"
+        >
+          <IoText className={styles.icon} /> Text
+        </button>
 
-           {/* Text Button */}
-           <button
-            className={`${styles.toolButton} ${selectedTool === 'text' ? styles.activeTool : ''}`}
-            onClick={() => {
-              setSelectedTool('text');
-              setIsTextOptionsVisible(!isTextOptionsVisible);
-              console.log('Text tool selected');
-            }}
-          >
-            <IoText style={{ marginRight: '8px', fontSize: "16" }} /> Text
-          </button>
-
-          {isTextOptionsVisible && selectedTool === 'text' && (
+        {/* Text Options */}
+        {isTextOptionsVisible && selectedTool === 'text' && (
           <div className={styles.textOptions}>
             <div className={styles.inputWithButton}>
               <input
@@ -1590,10 +1609,12 @@ const Canvas = forwardRef(
                 value={textSize}
                 onChange={(e) => setTextSize(parseInt(e.target.value))}
                 className={styles.textInput}
+                aria-label="Text Size"
               />
               <button
                 onClick={() => setIsTextOptionsVisible(false)}
                 className={styles.doneButton}
+                aria-label="Done Text Options"
               >
                 Done
               </button>
@@ -1601,335 +1622,330 @@ const Canvas = forwardRef(
           </div>
         )}
 
-            {/* Select Tool Button */}
-          <button
-            className={`${styles.toolButton} ${selectedTool === 'select' ? styles.activeTool : ''}`}
-            onClick={() => {
-              setSelectedTool('select');
-              console.log('Select tool selected');
-            }}
-          >
-            {/* Replace with appropriate icon */}
-            <FaMouse style={{ marginRight: '8px'}}/> Select
-          </button>
+        {/* Select Tool */}
+        <button
+          className={`${styles.toolButton} ${selectedTool === 'select' ? styles.activeTool : ''}`}
+          onClick={() => {
+            setSelectedTool('select');
+            console.log('Select tool selected');
+          }}
+          aria-pressed={selectedTool === 'select'}
+          aria-label="Select Tool"
+        >
+          <FaMouse className={styles.icon} /> Select
+        </button>
+      </div>
 
-          {/* Share Link Button */}
+      {/* Center Group: Undo/Redo */}
+      <div className={styles.toolbarGroupCenter}>
+        {/* Undo */}
+        <button
+          className={styles.toolButton}
+          onClick={handleUndo}
+          disabled={undoStack.length === 0}
+          title="Undo"
+          aria-label="Undo"
+        >
+          ↩️ Undo
+        </button>
+
+        {/* Redo */}
+        <button
+          className={styles.toolButton}
+          onClick={handleRedo}
+          disabled={redoStack.length === 0}
+          title="Redo"
+          aria-label="Redo"
+        >
+          ↪️ Redo
+        </button>
+      </div>
+
+      {/* Right Group: Upload, Share, Clear Canvas, Sign Out */}
+      <div className={styles.toolbarGroupRight}>
+        {/* Upload PDF Button */}
+        <div className={styles.uploadWrapper}>
           <button
             className={styles.toolButton}
-            onClick={toggleShareLinkModal} // Function to open the share link modal
-            >
-           <FaShareAlt style={{ marginRight: '8px'}}/> Share Link
-          </button>
-
-          {/* Undo Button */}
-          <button
-            className={styles.toolButton}
-            onClick={handleUndo}
-            disabled={undoStack.length === 0}
-            title="Undo"
+            onClick={toggleUploadMenu}
+            aria-label="Upload File"
           >
-            ↩️ Undo
+            <FaCloudUploadAlt className={styles.icon} /> Upload
           </button>
-
-          {/* Redo Button */}
-          <button
-            className={styles.toolButton}
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
-            title="Redo"
-          >
-            ↪️ Redo
-          </button>
-
-
-    
-          {/* Share Link Modal */}
-            {isShareLinkModalVisible && (
-              <div className={styles.modalOverlay}>
-                <div className={styles.modalContent}>
-                  <h2>Share This Board</h2>
-                  <input
-                    type="text"
-                    readOnly
-                    value={boardId}
-                    className={styles.shareLinkInput}
-                  />
-                  <button
-                    className={styles.copyButton}
-                    onClick={() => {
-                      navigator.clipboard.writeText(boardId);
-                      alert('Board ID copied to clipboard!');
-                    }}
-                  >
-                    Copy Link
-                  </button>
-                  <button
-                    className={styles.closeButton}
-                    onClick={toggleShareLinkModal}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-
-          {/* Upload PDF Button */}
-          <div className={styles.uploadWrapper}>
-            <button className={styles.toolButton} onClick={toggleUploadMenu}>
-            <FaCloudUploadAlt style={{ marginRight: '8px' }} /> Upload
-            </button>
-            
-            {/* Chatbot button */}
-             <button
-             className={styles.toolButton}
-        onClick={toggleChatbot} // This should be defined
-        style={{ padding: '10px', margin: '10px' }}
-      >
-        <FaRobot style={{ marginRight: '8px' }} /> Chatbot
-      </button>
-      
-<button 
-className={styles.toolButton}
-onClick={() => setCaptureMode(prev => !prev)}>
-  {captureMode ? 'Capture Mode ON' : 'Capture Mode OFF'}
-</button>
-{isChatbotVisible && (
-  <div
-  style={{
-    position: 'fixed',
-    top: '78px', // Adjusted for the toolbar height
-    right: '0', // Aligned to the right
-    width: '350px',
-    height: 'calc(100vh - 80px)', // Reduced height for a shorter appearance
-    backgroundColor: 'white',
-    border: '1px solid #ccc',
-    zIndex: 1000,
-    padding: '10px',
-    overflow: 'auto',
-  }}
-  
-  >
-    <Chatbot />
-    <button
-      onClick={toggleChatbot}
-      style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        padding: '5px',
-        cursor: 'pointer',
-        backgroundColor: 'white',
-        
-      }}
-    >
-      <IoCloseSharp />
-    </button>
-  </div>
-)}
-
-            {isUploadMenuVisible && (
-              <div className={styles.uploadMenu}>
-                <button
-                  className={styles.menuItem}
-                  onClick={() => {
-                    handleUploadButtonClick();
-                    setIsUploadMenuVisible(false);
-                  }}
-                >
-                  Upload New File
-                </button>
-                <button
-                  className={styles.menuItem}
-                  onClick={() => {
-                    // Call function to display existing files
-                    handleBrowseFiles();
-                    setIsUploadMenuVisible(false);
-                  }}
-                >
-                  Browse Existing Files
-                </button>
-              </div>
-            )}
-            {/* Files Modal */}
-            {isFilesModalVisible && (
-            <div className={styles.modalOverlay}>
-              <div className={styles.modalContent}>
-                <h2>Uploaded Files</h2>
-                <ul className={styles.fileList}>
-                  {uploadedFiles.map((file, index) => (
-                    <li
-                      key={index}
-                      className={styles.fileItem}
-                      onClick={() => handleFileSelection(file)}
-                    >
-                      {file.originalFilename}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className={styles.closeButton}
-                  onClick={() => setIsFilesModalVisible(false)}
-                >
-                  Close
-                </button>
-              </div>
+          {isUploadMenuVisible && (
+            <div className={styles.uploadMenu}>
+              <button
+                className={styles.menuItem}
+                onClick={() => {
+                  handleUploadButtonClick();
+                  setIsUploadMenuVisible(false);
+                }}
+                aria-label="Upload New File"
+              >
+                Upload New File
+              </button>
+              <button
+                className={styles.menuItem}
+                onClick={() => {
+                  handleBrowseFiles();
+                  setIsUploadMenuVisible(false);
+                }}
+                aria-label="Browse Existing Files"
+              >
+                Browse Existing Files
+              </button>
             </div>
           )}
-          </div>
-          {/* Hidden File Input */}
-          <input
-            type="file"
-            accept=".pdf"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={handleFileSelect}
-          />
-          {/* Desk Name Input */}
-          <input type="text" placeholder="Desk Name" className={styles.deskNameInput} />
+        </div>
 
-          {/* Sign Out Button */}
-          <button className={styles.signOutButton} onClick={handleSignOut}>
-            Sign Out
+        {/* Share Link */}
+        <button
+          className={styles.toolButton}
+          onClick={toggleShareLinkModal}
+          aria-label="Share Link"
+        >
+          <FaShareAlt className={styles.icon} /> Share Link
+        </button>
+
+        {/* Clear Canvas */}
+        <button
+          className={styles.toolButton}
+          onClick={() => {
+            clearSocketCanvas();
+            console.log('Clear Canvas button clicked');
+          }}
+          aria-label="Clear Canvas"
+        >
+          <FaTrashCan className={styles.icon} /> Clear Canvas
+        </button>
+
+        {/* Sign Out */}
+        <button
+          className={styles.signOutButton}
+          onClick={handleSignOut}
+          aria-label="Sign Out"
+        >
+          Sign Out
+        </button>
+      </div>
+    </div>
+
+    {/* Share Link Modal */}
+    {isShareLinkModalVisible && (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modalContent}>
+          <h2>Share This Board</h2>
+          <input
+            type="text"
+            readOnly
+            value={boardId}
+            className={styles.shareLinkInput}
+            aria-label="Board Share Link"
+          />
+          <div>
+            <button
+              className={styles.copyButton}
+              onClick={() => {
+                navigator.clipboard.writeText(boardId);
+                alert('Board ID copied to clipboard!');
+              }}
+              aria-label="Copy Share Link"
+            >
+              Copy Link
+            </button>
+            <button
+              className={styles.closeButton}
+              onClick={toggleShareLinkModal}
+              aria-label="Close Share Link Modal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Upload File Input */}
+    <input
+      type="file"
+      accept=".pdf"
+      ref={fileInputRef}
+      style={{ display: 'none' }}
+      onChange={handleFileSelect}
+      aria-hidden="true"
+    />
+
+    {/* Files Modal */}
+    {isFilesModalVisible && (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modalContent}>
+          <h2>Uploaded Files</h2>
+          <ul className={styles.fileList}>
+            {uploadedFiles.map((file, index) => (
+              <li
+                key={`file_${index}`}
+                className={styles.fileItem}
+                onClick={() => handleFileSelection(file)}
+              >
+                {file.originalFilename}
+              </li>
+            ))}
+          </ul>
+          <button
+            className={styles.closeButton}
+            onClick={() => setIsFilesModalVisible(false)}
+            aria-label="Close Files Modal"
+          >
+            Close
           </button>
         </div>
-          {/* PDF Preview Side Menu */}
-          {isPdfPreviewVisible && selectedPdf && (
-            <div className={styles.pdfPreview}>
-              <div className={styles.previewHeader}>
-                <h2>{selectedPdf.originalFilename}</h2>
-                <button
-                  className={styles.closeButton}
-                  onClick={() => setIsPdfPreviewVisible(false)}
-                >
-                  Close
-                </button>
-              </div>
-              <div className={styles.pdfPages}>
-                <Document
-                  file={selectedPdf.url}
-                  onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                >
-                  {Array.from(new Array(numPages), (el, index) => (
-                    <Page
-                      key={`page_${index + 1}`}
-                      pageNumber={index + 1}
-                      width={450}
-                      onClick={() => console.log(`Page ${index + 1} clicked`)}
-                      onDoubleClick={() => handlePageDoubleClick(index + 1)}
-                      className={styles.pdfPage}
-                    />
-                  ))}
-                </Document>
-              </div>
-            </div>
-          )}
-        {/* Canvas Wrapper */}
-<div
-  className={styles.canvasWrapper}
-  style={{
-    height: '100vh', // Set the visible height to the viewport height
-    overflowY: 'auto', // Enable vertical scrolling if content exceeds the height
-    overflowX: 'hidden', // Optional: Hide horizontal scrolling
-    border: '1px solid #ccc', // Optional: Add a border for better visibility
-  }}
->
-  <canvas
-    ref={(node) => {
-      setCanvasNode(node);
-      if (node) {
-        console.log('Canvas element rendered:', node);
-      } else {
-        console.warn('Canvas element not found');
-      }
-    }}
-    id="main-canvas"
-    width={window.innerWidth}
-    height={window.innerHeight * 10} // Large canvas height to test scrolling
-    style={{
-      display: 'block', // Ensures no inline scrollbars on the canvas itself
-      margin: '0 auto', // Center canvas horizontally if needed
-    }}
-  />
-</div>
+      </div>
+    )}
 
-        {/* Bottom Left - Color Picker and Size Sliders */}
-        <div className={styles.controlsWrapper}>
-          {/* Color Picker */}
-          <div className={styles.colorPickerWrapper}>
-            <input
-              type="color"
-              className={styles.colorPicker}
-              value={brushColor}
-              onChange={(e) => {
-                const newColor = e.target.value;
-                console.log('Brush color changed:', newColor);
-                setBrushColor(newColor);
-              }}
-            />
-          </div>
+    {/* PDF Preview Side Menu */}
+    {isPdfPreviewVisible && selectedPdf && (
+      <div className={styles.pdfPreview}>
+        <div className={styles.previewHeader}>
+          <h2>{selectedPdf.originalFilename}</h2>
+          <button
+            className={styles.closeButton}
+            onClick={() => setIsPdfPreviewVisible(false)}
+            aria-label="Close PDF Preview"
+          >
+            Close
+          </button>
+        </div>
+        <div className={styles.pdfPages}>
+          <Document
+            file={selectedPdf.url}
+            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+          >
+            {Array.from(new Array(numPages), (el, index) => (
+              <Page
+                key={`page_${index + 1}`}
+                pageNumber={index + 1}
+                width={450}
+                onClick={() => console.log(`Page ${index + 1} clicked`)}
+                onDoubleClick={() => handlePageDoubleClick(index + 1)}
+                className={styles.pdfPage}
+              />
+            ))}
+          </Document>
+        </div>
+      </div>
+    )}
 
-          {/* Brush Size Slider */}
-          <div className={styles.sliderGroup}>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={brushSize}
-              onChange={(e) => {
-                const newSize = parseInt(e.target.value, 10);
-                console.log('Brush size changed:', newSize);
-                setBrushSize(newSize);
-              }}
-              className={styles.slider}
-            />
-            <label className={styles.sliderLabel}>Brush Size</label>
-          </div>
+    {/* Chatbot Modal */}
+    {isChatbotVisible && (
+      <div className={styles.chatbotModal}>
+        <Chatbot />
+        <button
+          onClick={toggleChatbot}
+          className={styles.closeButton}
+          aria-label="Close Chatbot"
+        >
+          <IoCloseSharp />
+        </button>
+      </div>
+    )}
 
-          {/* Eraser Size Slider */}
-          <div className={styles.sliderGroup}>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={eraserSize}
-              onChange={(e) => {
-                const newSize = parseInt(e.target.value, 10);
-                console.log('Eraser size changed:', newSize);
-                setEraserSize(newSize);
-              }}
-              className={styles.slider}
-            />
-            <label className={styles.sliderLabel}></label>
-          </div>
-        </div>  
+    {/* Canvas Wrapper */}
+    <div className={styles.canvasWrapper}>
+      <canvas
+        ref={(node) => {
+          setCanvasNode(node);
+          if (node) {
+            console.log('Canvas element rendered:', node);
+          } else {
+            console.warn('Canvas element not found');
+          }
+        }}
+        id="main-canvas"
+        width={window.innerWidth}
+        height={window.innerHeight * 10}
+        className={styles.canvas}
+      />
+    </div>
 
-        {/* Bottom Right - User List */}
-        <div className={styles.userListContainer}>
-        {!isListVisible && (
-        <button 
-        className={styles.toggleButton} 
-        onClick={toggleListVisibility}
-      >
-        User List
-      </button>
-        )}
+    {/* Bottom Left - Color Picker and Size Sliders */}
+    <div className={styles.controlsWrapper}>
+      {/* Color Picker */}
+      <div className={styles.colorPickerWrapper}>
+        <input
+          type="color"
+          className={styles.colorPicker}
+          value={brushColor}
+          onChange={(e) => {
+            const newColor = e.target.value;
+            console.log('Brush color changed:', newColor);
+            setBrushColor(newColor);
+          }}
+          aria-label="Brush Color Picker"
+        />
+      </div>
+
+      {/* Brush Size Slider */}
+      <div className={styles.sliderGroupBrush}>
+        <input
+          type="range"
+          min="1"
+          max="50"
+          value={brushSize}
+          onChange={(e) => {
+            const newSize = parseInt(e.target.value, 10);
+            console.log('Brush size changed:', newSize);
+            setBrushSize(newSize);
+          }}
+          className={styles.slider}
+          aria-label="Brush Size Slider"
+        />
+        <label className={styles.sliderLabel}>Brush Size / Eraser Size</label>
+      </div>
+
+      {/* Eraser Size Slider */}
+      <div className={styles.sliderGroupEraser}>
+        <input
+          type="range"
+          min="1"
+          max="50"
+          value={eraserSize}
+          onChange={(e) => {
+            const newSize = parseInt(e.target.value, 10);
+            console.log('Eraser size changed:', newSize);
+            setEraserSize(newSize);
+          }}
+          className={styles.slider}
+          aria-label="Eraser Size Slider"
+        />
+        <label className={styles.sliderLabel}></label>
+      </div>
+    </div>
+
+    {/* Bottom Right - User List */}
+    <div className={styles.userListContainer}>
+      {!isListVisible && (
+        <button
+          className={styles.toggleButton}
+          onClick={toggleListVisibility}
+          aria-label="Show User List"
+        >
+          User List
+        </button>
+      )}
       {isListVisible && (
         <div
-        className={styles.userList}
-        onBlur={handleBlur} // Trigger onBlur when focus is lost
-        tabIndex={0} // Make the div focusable
-      >
+          className={styles.userList}
+          onBlur={handleBlur}
+          tabIndex={0}
+          aria-label="User List"
+        >
           <div className={styles.userItem}>User 1</div>
           <div className={styles.userItem}>User 2</div>
         </div>
       )}
-          
-        </div>
-      </div>
-    );
-  }
+    </div>
+  </div>
 );
-
-
+});
 
 export default Canvas;

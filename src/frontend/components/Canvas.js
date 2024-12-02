@@ -15,11 +15,11 @@ import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
-import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot } from "react-icons/fa";
+import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMouse, FaShareAlt } from "react-icons/fa";
 import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
-import { IoCloseSharp } from "react-icons/io5";
+import { IoCloseSharp, IoText } from "react-icons/io5";
 
 import { FaFont } from 'react-icons/fa';
 
@@ -1017,6 +1017,7 @@ const Canvas = forwardRef(
     // Text and Selector
     const [isTextOptionsVisible, setIsTextOptionsVisible] = useState(false);
     const [textSize, setTextSize] = useState(20); // Default text size
+    const [textColor, setTextColor] = useState('#000000');
 
 
     // Share Link State
@@ -1414,24 +1415,24 @@ const toggleCaptureMode = () => {
           {isEraserOptionsVisible && selectedTool === 'eraser' && (
             <div className={styles.eraserOptions}>
               <button
-                className={styles.toolButton}
+                className={styles.toolButtonWhite}
                 onClick={() => {
                   setEraserMode('whiteEraser');
                   setIsEraserOptionsVisible(false);
                   console.log('White Eraser mode selected');
                 }}
               >
-               <SiEraser style={{ marginRight: '8px' }} /> White Eraser
+               <SiEraser style={{ marginRight: '8px' }} /> White
               </button>
               <button
-                className={styles.toolButton}
+                className={styles.toolButtonStroke}
                 onClick={() => {
                   setEraserMode('strokeEraser');
                   setIsEraserOptionsVisible(false);
                   console.log('Stroke Eraser mode selected');
                 }}
               >
-               <BiSolidEraser style={{ marginRight: '8px' }} /> Stroke Eraser
+               <BiSolidEraser style={{ marginRight: '8px' }} /> Stroke
               </button>
             </div>
           )}
@@ -1455,7 +1456,7 @@ const toggleCaptureMode = () => {
               console.log('Highlighter selected, opacity set to 0.3');
             }}
           >
-            🖍️ Highlighter
+            <FaHighlighter style={{ marginRight: '8px' }} /> Highlighter
           </button>
 
            {/* Text Button */}
@@ -1467,20 +1468,27 @@ const toggleCaptureMode = () => {
               console.log('Text tool selected');
             }}
           >
-            <FaFont style={{ marginRight: '8px' }} /> Text
+            <IoText style={{ marginRight: '8px', fontSize: "16" }} /> Text
           </button>
 
           {isTextOptionsVisible && selectedTool === 'text' && (
-            <div className={styles.textOptions}>
-              <label></label>
+          <div className={styles.textOptions}>
+            <div className={styles.inputWithButton}>
               <input
                 type="number"
                 value={textSize}
                 onChange={(e) => setTextSize(parseInt(e.target.value))}
+                className={styles.textInput}
               />
-              <button onClick={() => setIsTextOptionsVisible(false)}>Done</button>
+              <button
+                onClick={() => setIsTextOptionsVisible(false)}
+                className={styles.doneButton}
+              >
+                Done
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
             {/* Select Tool Button */}
           <button
@@ -1491,7 +1499,7 @@ const toggleCaptureMode = () => {
             }}
           >
             {/* Replace with appropriate icon */}
-            🖱️ Select
+            <FaMouse style={{ marginRight: '8px'}}/> Select
           </button>
 
           {/* Share Link Button */}
@@ -1499,41 +1507,38 @@ const toggleCaptureMode = () => {
             className={styles.toolButton}
             onClick={toggleShareLinkModal} // Function to open the share link modal
             >
-           Share Link
+           <FaShareAlt style={{ marginRight: '8px'}}/> Share Link
           </button>
           {/* Share Link Modal */}
-{isShareLinkModalVisible && (
-  <div className={styles.modalOverlay}>
-    <div className={styles.modalContent}>
-      <h2>Share This Board</h2>
-      <input
-        type="text"
-        readOnly
-        value={boardId}
-        className={styles.shareLinkInput}
-      />
-      <button
-        className={styles.copyButton}
-        onClick={() => {
-          navigator.clipboard.writeText(boardId);
-          alert('Board ID copied to clipboard!');
-        }}
-      >
-        Copy Link
-      </button>
-      <button
-        className={styles.closeButton}
-        onClick={toggleShareLinkModal}
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+            {isShareLinkModalVisible && (
+              <div className={styles.modalOverlay}>
+                <div className={styles.modalContent}>
+                  <h2>Share This Board</h2>
+                  <input
+                    type="text"
+                    readOnly
+                    value={boardId}
+                    className={styles.shareLinkInput}
+                  />
+                  <button
+                    className={styles.copyButton}
+                    onClick={() => {
+                      navigator.clipboard.writeText(boardId);
+                      alert('Board ID copied to clipboard!');
+                    }}
+                  >
+                    Copy Link
+                  </button>
+                  <button
+                    className={styles.closeButton}
+                    onClick={toggleShareLinkModal}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
 
-
-          
-            
           {/* Upload PDF Button */}
           <div className={styles.uploadWrapper}>
             <button className={styles.toolButton} onClick={toggleUploadMenu}>

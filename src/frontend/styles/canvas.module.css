@@ -18,9 +18,7 @@
   padding: 10px 20px;
   background-color: #ffffff;
   border-bottom: 1px solid #ddd;
-
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
   z-index: 10;
   border-radius: 0 0 8px 8px;
 }
@@ -269,8 +267,6 @@
   font-weight: 500;
 }
 
-/* canvas.module.css */
-
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -299,12 +295,142 @@
 }
 
 .copyButton {
-  padding: 8px 12px;
+  padding: 10px 16px;
   margin-right: 10px;
   cursor: pointer;
+  background: #007bff;
+  color: #ffffff;
+  border: none; 
+  border-radius: 8px;
+  font-size: 14px; 
+  font-weight: bold; 
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.copyButton:hover {
+  background: #007bff;
+  transform: scale(1.05);
+}
+
+.copyButton:active {
+  transform: scale(0.95);
+  background: #007bff;
 }
 
 .closeButton {
+  padding: 10px 16px;
+  margin-right: 10px;
+  cursor: pointer;
+  background: #c82333;
+  color: #ffffff;
+  border: none; 
+  border-radius: 8px;
+  font-size: 14px; 
+  font-weight: bold;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.closeButton:hover {
+  background: #c82333;
+  transform: scale(1.05);
+}
+
+.closeButton:active {
+  transform: scale(0.95);
+  background: #c82333;
+}
+.textOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: absolute; 
+  top: 60px;
+  left: 442px;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  width: 200px;
+  z-index: 100;
+}
+
+.inputWithButton {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.textInput {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.doneButton {
+  background-color: #007bff;
+  color: white;
+  border: none;
   padding: 8px 12px;
   cursor: pointer;
+  font-size: 14px;
+  border-left: 1px solid #ccc;
+  height: 100%;
+}
+
+.doneButton:hover {
+  background-color: #0056b3;
+}
+
+.eraserOptions {
+  position: absolute;
+  top: 65px;
+  left: 105px;
+  z-index: 100;
+}
+
+.eraserOptions button {
+  display: flex;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  width: 75px;
+  padding: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-bottom: 5px;
+}
+
+.eraserOptions button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.1);
+}
+
+.uploadMenu {
+  position: absolute;
+  border: none;
+  top: 55px; 
+  left: 2px;
+  z-index: 100;
+}
+
+.uploadMenu button {
+  display: flex;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  width: 110px;
+  padding: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-bottom: 5px;
+}
+
+.uploadMenu button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.1);
 }

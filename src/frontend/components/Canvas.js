@@ -57,7 +57,7 @@ const hexToRGBA = (hex, opacity) => {
 
 
 // Custom hook for managing the socket connection
-const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => {
+const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings, onDeleteStroke) => {
   const socketRef = useRef(null);
   const auth = getAuth();
   const navigate = useNavigate();
@@ -107,6 +107,11 @@ const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => 
             onClearCanvas();
           
         });
+
+        socketRef.current.on('delete', ({ strokeId }) => {
+          console.log('Received delete event for strokeId:', strokeId);
+          onDeleteStroke(strokeId);
+        });
       } catch (error) {
         console.error('Error initializing socket:', error);
         navigate('/login'); // Redirect to login if there's an error
@@ -154,6 +159,9 @@ const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings) => 
   return { broadcastDrawing, clearCanvas };
 };
 
+
+
+
 // Custom hook for canvas initialization and drawing logic using Fabric.js
 const useFabricCanvas = (
   canvasNode,
@@ -163,6 +171,8 @@ const useFabricCanvas = (
   brushOpacity,
   brushColor,
   textSize,
+  setUndoStack,
+  setRedoStack,
 ) => {
   const fabricCanvasRef = useRef(null); // Reference to the Fabric.js canvas instance
   const broadcastDrawingRef = useRef(null); // Reference to the broadcast function
@@ -257,146 +267,147 @@ useEffect(() => {
 
       console.log("Received element type:", type);
 
-    const existingObject = fabricCanvasRef.current
-      .getObjects()
-      .find((o) => o.strokeId === strokeId);
+      const existingObject = fabricCanvasRef.current
+        .getObjects()
+        .find((o) => o.strokeId === strokeId);
 
-    if (existingObject && type !== 'draw') {
-        // Modify the existing object
-        console.log("Deleating existing object:", strokeId);
+      if (existingObject && type !== 'draw') {
+          // Modify the existing object
+          console.log("Deleating existing object:", strokeId);
 
-        fabricCanvasRef.current.remove(existingObject);
-        fabricCanvasRef.current.renderAll();
-    }
+          fabricCanvasRef.current.remove(existingObject);
+          fabricCanvasRef.current.renderAll();
+      }
 
+      if (type === 'image') {
+        return new Promise((resolve, reject) => {
+          console.log("Add image");
+          const imgElement = new Image();
 
-    if (type === 'Image') {
-      return new Promise((resolve, reject) => {
-        console.log("Add image");
-        const imgElement = new Image();
+          imgElement.onload = () => {
+            const img = new fabric.Image(imgElement, {
+              left,
+              top,
+              scaleX,
+              scaleY,
+              strokeId,
+              selectable: true,
+              type: "image",
+              imageData: imageData,
+            });
+            fabricCanvasRef.current.add(img);
+            console.log("Render Image");
+            fabricCanvasRef.current.requestRenderAll();
+            resolve(); // Resolve the Promise after the image is added
+          };
 
-        imgElement.onload = () => {
-          const img = new fabric.Image(imgElement, {
-            left,
-            top,
-            scaleX,
-            scaleY,
-            strokeId,
-            selectable: true,
+          imgElement.onerror = (error) => {
+            console.error('Error loading image:', error);
+            resolve(); // Resolve even on error to continue processing
+          };
+
+          imgElement.src = imageData;
+        });
+      } else if (type === 'draw') {
+        // Handle real-time drawing updates with temporary strokes
+        const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
+        if (points && points.length > 0) {
+          let polyline = ongoingStrokes.current[strokeId];
+          if (!polyline) {
+            // Create a new temporary polyline
+            polyline = new fabric.Polyline([], {
+              stroke: isErasing ? 'white' : stroke,
+              strokeWidth,
+              fill: null,
+              selectable: false,
+              evented: false, // Temporary strokes are not evented
+              strokeLineCap: 'round',
+              strokeLineJoin: 'round',
+            });
+            polyline.strokeId = strokeId;
+            ongoingStrokes.current[strokeId] = polyline;
+            fabricCanvasRef.current.add(polyline);
+          }
+
+          // Append new points to the polyline
+          const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
+          polyline.points = polyline.points.concat(newPoints);
+
+          // Update object's coordinates
+          polyline.setCoords();
+
+          // Mark the object as dirty and request a render
+          polyline.set({
+            dirty: true,
+            objectCaching: false,
           });
-          fabricCanvasRef.current.add(img);
-          console.log("Render Image");
           fabricCanvasRef.current.requestRenderAll();
-          resolve(); // Resolve the Promise after the image is added
-        };
+        }
 
-        imgElement.onerror = (error) => {
-          console.error('Error loading image:', error);
-          resolve(); // Resolve even on error to continue processing
-        };
+      } else if (type === 'stroke') {
+        // Finalize the stroke by replacing the temporary stroke
+        const { points, stroke, strokeWidth, isErasing, opacity, left, top } = drawing;
 
-        imgElement.src = imageData;
-      });
-    } else if (type === 'draw') {
-      // Handle real-time drawing updates with temporary strokes
-      const { points, stroke, strokeWidth, isErasing, opacity } = drawing;
-      if (points && points.length > 0) {
         let polyline = ongoingStrokes.current[strokeId];
-        if (!polyline) {
-          // Create a new temporary polyline
-          polyline = new fabric.Polyline([], {
+        if (polyline) {
+          // Remove the temporary stroke
+          fabricCanvasRef.current.remove(polyline);
+          delete ongoingStrokes.current[strokeId];
+        }
+
+
+        if (points && points.length > 0) {
+          const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
+          const finalizedPolyline = new fabric.Polyline(pointArray, {
+            left: left,
+            top: top,
+            leftGlobal: left,
+            topGlobal: top,
             stroke: isErasing ? 'white' : stroke,
             strokeWidth,
             fill: null,
             selectable: false,
-            evented: false, // Temporary strokes are not evented
+            evented: true, // Finalized st  rokes are evented
             strokeLineCap: 'round',
             strokeLineJoin: 'round',
           });
-          polyline.strokeId = strokeId;
-          ongoingStrokes.current[strokeId] = polyline;
-          fabricCanvasRef.current.add(polyline);
+          finalizedPolyline.strokeId = strokeId; // Assign strokeId
+          finalizedPolyline.selectable = true;   // Ensure selectable
+          finalizedPolyline.evented = true;      // Ensure evented
+          fabricCanvasRef.current.add(finalizedPolyline);
+          fabricCanvasRef.current.renderAll();
+
+          console.log("leftG, topG:", finalizedPolyline.leftGlobal, finalizedPolyline.topGlobal);
         }
+        return Promise.resolve();
+      } else if (type === 'delete') {
+        // Handle deletion of stroke
+        console.log('Received delete event for strokeId:', strokeId);
+        const objects = fabricCanvasRef.current.getObjects();
+        const target = objects.find((obj) => obj.strokeId === strokeId);
 
-        // Append new points to the polyline
-        const newPoints = points.map((point) => ({ x: point.x, y: point.y }));
-        polyline.points = polyline.points.concat(newPoints);
+        if (target) {
+          fabricCanvasRef.current.remove(target);
+          fabricCanvasRef.current.renderAll();
+        }
+        return Promise.resolve();
 
-        // Update object's coordinates
-        polyline.setCoords();
-
-        // Mark the object as dirty and request a render
-        polyline.set({
-          dirty: true,
-          objectCaching: false,
-        });
-        fabricCanvasRef.current.requestRenderAll();
-      }
-
-    } else if (type === 'stroke') {
-      // Finalize the stroke by replacing the temporary stroke
-      const { points, stroke, strokeWidth, isErasing, opacity, left, top } = drawing;
-
-      let polyline = ongoingStrokes.current[strokeId];
-      if (polyline) {
-        // Remove the temporary stroke
-        fabricCanvasRef.current.remove(polyline);
-        delete ongoingStrokes.current[strokeId];
-      }
-
-
-      if (points && points.length > 0) {
-        const pointArray = points.map((point) => ({ x: point.x, y: point.y }));
-        const finalizedPolyline = new fabric.Polyline(pointArray, {
-          left: left,
-          top: top,
-          leftGlobal: left,
-          topGlobal: top,
-          stroke: isErasing ? 'white' : stroke,
-          strokeWidth,
-          fill: null,
+      } else if (type === 'text') {
+        const { text: textContent, left, top, fill, fontSize, strokeId } = drawing;
+        const newText = new fabric.IText(textContent, {
+          left,
+          top,
+          fill,
+          fontSize,
           selectable: false,
-          evented: true, // Finalized st  rokes are evented
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
+          evented: true,
         });
-        finalizedPolyline.strokeId = strokeId; // Assign strokeId
-        finalizedPolyline.selectable = true;   // Ensure selectable
-        finalizedPolyline.evented = true;      // Ensure evented
-        fabricCanvasRef.current.add(finalizedPolyline);
+        newText.strokeId = strokeId;
+        fabricCanvasRef.current.add(newText);
         fabricCanvasRef.current.renderAll();
-
-        console.log("leftG, topG:", finalizedPolyline.leftGlobal, finalizedPolyline.topGlobal);
-      }
-      return Promise.resolve();
-    } else if (type === 'delete') {
-      // Handle deletion of stroke
-      console.log('Received delete event for strokeId:', strokeId);
-      const objects = fabricCanvasRef.current.getObjects();
-      const target = objects.find((obj) => obj.strokeId === strokeId);
-
-      if (target) {
-        fabricCanvasRef.current.remove(target);
-        fabricCanvasRef.current.renderAll();
-      }
-      return Promise.resolve();
-
-    } else if (type === 'text') {
-      const { text: textContent, left, top, fill, fontSize, strokeId } = drawing;
-      const newText = new fabric.IText(textContent, {
-        left,
-        top,
-        fill,
-        fontSize,
-        selectable: false,
-        evented: true,
-      });
-      newText.strokeId = strokeId;
-      fabricCanvasRef.current.add(newText);
-      fabricCanvasRef.current.renderAll();
-    } else {
-      console.warn('Invalid drawing data received:', drawing);
-    }
+      } else {
+        console.warn('Invalid drawing data received:', drawing);
+      }  
     },
     [fabricCanvasRef]
   );
@@ -541,7 +552,11 @@ useEffect(() => {
           modifiedData.fontSize = obj.fontSize || null;
           modifiedData.fill = obj.fill || null;
           modifiedData.type = "text";
-        } else {
+        } else if (obj.type === "image"){
+          modifiedData.imageData = obj.imageData;
+          modifiedData.type = "image";  
+        }
+        else {
           console.warn("Unsupported object type for processing:", obj.type);
           return;
         }
@@ -652,8 +667,11 @@ useEffect(() => {
               fill: text.fill,
               fontSize: text.fontSize,
             };
-            if (broadcastDrawingRef.current) {
+            if (broadcastDrawingRef.current && textData.text !== "") {
               broadcastDrawingRef.current(textData);
+              // **Add to Undo stack**
+              setUndoStack((prev) => [...prev, textData]);
+              setRedoStack([]);
             }
             // Remove the event listener to prevent multiple broadcasts
             text.selectable = true;
@@ -704,7 +722,7 @@ useEffect(() => {
           const target = fabricCanvasRef.current.findTarget(event, true);
           if(target){
             const type = target.type;
-            console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
+            //console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
             if(type !== "polyline" && type !== "path" ){
               console.log(type);  
               return;
@@ -779,6 +797,25 @@ useEffect(() => {
         path.leftGlobal = path.left || 0;
         path.topGlobal = path.top || 0;
         console.log('path:created, assigned strokeId:', currentStrokeId, 'to path:', path);
+
+          // **Add to Undo stack**
+        setUndoStack((prev) => [
+          ...prev,
+          {
+            strokeId: currentStrokeId,
+            type: 'stroke',
+            points: path.rawPoints,
+            stroke: path.stroke,
+            strokeWidth: path.strokeWidth,
+            left: path.left,
+            top: path.top,
+            isErasing: path._isErasing || false,
+          },
+        ]);
+
+        // **Clear the Redo stack**
+        setRedoStack([]);
+
       });
 
       // Load any initial drawings onto the canvas
@@ -800,9 +837,8 @@ useEffect(() => {
         console.log('Fabric.js canvas disposed');
       };
     } else {
-      if (!canvasNode) {
+      if (!canvasNode) 
         console.warn('Canvas DOM element is not available');
-      }
     }
   }, [
     canvasNode,
@@ -982,8 +1018,6 @@ try {
 
 
 
-
-
 // Main Canvas component
 const Canvas = forwardRef(
   ({ brushColor: initialBrushColor = '#000000', brushSize: initialBrushSize = 5 },ref) => {
@@ -1022,7 +1056,61 @@ const Canvas = forwardRef(
 
     // Share Link State
     const [isShareLinkModalVisible, setIsShareLinkModalVisible] = useState(false);
-    
+
+    // Do-Undo
+    const [undoStack, setUndoStack] = useState([]); // Stack to track undoable actions
+    const [redoStack, setRedoStack] = useState([]); // Stack to track redoable actions
+
+    const handleUndo = () => {
+      if (undoStack.length === 0) return;
+      
+      const lastAction = undoStack[undoStack.length - 1];
+      setUndoStack((prev) => prev.slice(0, -1));
+      setRedoStack((prev) => [...prev, lastAction]);
+      if (broadcastDrawing) {
+        // Emit a 'drawing' event with type 'delete' to undo the last action
+        broadcastDrawing({
+          type: 'delete',
+          strokeId: lastAction.strokeId,
+        });
+      }
+      const objects = fabricCanvasRef.current.getObjects();
+      console.log(objects);
+      const target = objects.find((obj) => obj.strokeId === lastAction.strokeId);      
+      console.log(target);
+
+      fabricCanvasRef.current.remove(target);
+      fabricCanvasRef.current.renderAll();
+    };
+
+    const handleRedo = () => {
+      if (redoStack.length === 0) return;
+      
+      const lastUndoneAction = redoStack[redoStack.length - 1];
+      setRedoStack((prev) => prev.slice(0, -1));
+      setUndoStack((prev) => [...prev, lastUndoneAction]);
+
+      addDrawingToCanvas(lastUndoneAction);
+
+      if (broadcastDrawing) {
+        // Re-emit the original drawing data to redo the action
+        broadcastDrawing(lastUndoneAction);
+      }
+    };
+
+
+    const onDeleteStroke = useCallback((strokeId) => {
+      const objects = fabricCanvasRef.current.getObjects();
+      const target = objects.find((obj) => obj.strokeId === strokeId);
+
+      if (target) {
+        fabricCanvasRef.current.remove(target);
+        fabricCanvasRef.current.renderAll();
+      } else {
+        console.warn('No object found with strokeId:', strokeId);
+      }
+    }, []);
+
 
     const handleBlur = (e) => {
       // Check if the event target is outside the user list or button
@@ -1034,27 +1122,27 @@ const Canvas = forwardRef(
       setListVisible(!isListVisible);
     };
 
-const [captureMode, setCaptureMode] = useState(false);
-//const [captureMode] = useState(false);
+    const [captureMode, setCaptureMode] = useState(false);
+    //const [captureMode] = useState(false);
 
-// Update capture mode state and toggle drawing mode accordingly
-const toggleCaptureMode = () => {
-  setCaptureMode(prevMode => {
-    // Disable drawing when capture mode is on
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.isDrawingMode = prevMode ? true : false;
-    }
-    return !prevMode;
-  });
-};
+    // Update capture mode state and toggle drawing mode accordingly
+    const toggleCaptureMode = () => {
+      setCaptureMode(prevMode => {
+        // Disable drawing when capture mode is on
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.isDrawingMode = prevMode ? true : false;
+        }
+        return !prevMode;
+      });
+    };
 
 
     const fileInputRef = useRef(null);
 
-        // Function to toggle the share link modal
-        const toggleShareLinkModal = () => {
-          setIsShareLinkModalVisible(!isShareLinkModalVisible);
-        };
+    // Function to toggle the share link modal
+    const toggleShareLinkModal = () => {
+      setIsShareLinkModalVisible(!isShareLinkModalVisible);
+    };
 
     // State for upload menu
    const [isUploadMenuVisible, setIsUploadMenuVisible] = useState(false);
@@ -1210,6 +1298,9 @@ const toggleCaptureMode = () => {
         await page.render({ canvasContext: context, viewport }).promise;
         const imageData = canvas.toDataURL("image/png");
     
+        const uniqueId = `${Date.now()}_${uuidv4()}`;
+        console.log("Unique id of the image: ", uniqueId);
+
         fabric.Image.fromURL(imageData, (img) => {
           img.scale(0.2);
           img.set({
@@ -1218,6 +1309,7 @@ const toggleCaptureMode = () => {
             selectable: true,
             hasControls: true,
             hasBorders: true,
+            strokeId: uniqueId,
           });
     
           // Add the image to the canvas
@@ -1226,24 +1318,28 @@ const toggleCaptureMode = () => {
           img.bringToFront();
     
           const broadcastFinalState = () => {
+
+
             const modifiedState = {
               left: img.left,
               top: img.top,
               scaleX: img.scaleX,
               scaleY: img.scaleY,
+              type: 'image',
+              strokeId: uniqueId,
+              imageData: imageData,
             };
     
-            const uniqueId = `${Date.now()}_${uuidv4()}`;
-            console.log("Unique id of the image: ", uniqueId);
-    
             if (broadcastDrawing) {
-              broadcastDrawing({
-                type: 'Image',
-                strokeId: uniqueId,
-                imageData: imageData,
-                ...modifiedState,
-              });
+              broadcastDrawing(modifiedState)
             }
+
+          
+            // **Add to Undo stack**
+            setUndoStack((prev) => [...prev, modifiedState]);
+          
+            // **Clear the Redo stack**
+            setRedoStack([]);
     
           };
     
@@ -1256,6 +1352,8 @@ const toggleCaptureMode = () => {
             }
           });
         });
+
+        
       } catch (error) {
         console.error("Error adding page to canvas:", error);
       }
@@ -1270,7 +1368,17 @@ const toggleCaptureMode = () => {
       addDrawingToCanvas,
       updateBrushSettings,
       setBroadcastDrawing,
-    } = useFabricCanvas(canvasNode, initialDrawings, selectedTool, eraserMode, brushOpacity);
+    } = useFabricCanvas(
+      canvasNode,
+      initialDrawings,
+      selectedTool,
+      eraserMode,
+      brushOpacity,
+      brushColor,      
+      textSize,        
+      setUndoStack,    
+      setRedoStack     
+    );
 
     
     // Handle receiving drawing data from the server
@@ -1289,7 +1397,6 @@ const toggleCaptureMode = () => {
     }, [clearCanvas]);
 
     // Handle loading initial drawings when joining a room
-    // modify!!!
     const handleLoadDrawings = useCallback(
       async (elements) => {
         console.log('handleLoadDrawings called with elements:', elements);
@@ -1366,10 +1473,14 @@ const toggleCaptureMode = () => {
 
     // Function to handle user sign-out
     const handleSignOut = () => {
-      firebaseSignOut(getAuth())
-        .then(() => navigate('/login'))
-        .catch((error) => console.error('Error signing out:', error));
-    };
+    firebaseSignOut(getAuth())
+      .then(() => {
+        setUndoStack([]);
+        setRedoStack([]);
+        navigate('/login');
+      })
+      .catch((error) => console.error('Error signing out:', error));
+  };
 
     // Set loading to false once the component is mounted
     useEffect(() => {
@@ -1509,6 +1620,29 @@ const toggleCaptureMode = () => {
             >
            <FaShareAlt style={{ marginRight: '8px'}}/> Share Link
           </button>
+
+          {/* Undo Button */}
+          <button
+            className={styles.toolButton}
+            onClick={handleUndo}
+            disabled={undoStack.length === 0}
+            title="Undo"
+          >
+            ↩️ Undo
+          </button>
+
+          {/* Redo Button */}
+          <button
+            className={styles.toolButton}
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            title="Redo"
+          >
+            ↪️ Redo
+          </button>
+
+
+    
           {/* Share Link Modal */}
             {isShareLinkModalVisible && (
               <div className={styles.modalOverlay}>
@@ -1765,9 +1899,9 @@ onClick={() => setCaptureMode(prev => !prev)}>
               }}
               className={styles.slider}
             />
-            <label className={styles.sliderLabel}>Eraser Size</label>
+            <label className={styles.sliderLabel}></label>
           </div>
-        </div>
+        </div>  
 
         {/* Bottom Right - User List */}
         <div className={styles.userListContainer}>
@@ -1795,5 +1929,7 @@ onClick={() => setCaptureMode(prev => !prev)}>
     );
   }
 );
+
+
 
 export default Canvas;

@@ -145,7 +145,7 @@ io.on('connection', (socket) => {
   
     // Handle different types of drawing actions
     switch (type) {
-      case 'Image':
+      case 'image':
         // Save Image Element
         await elementsRef.doc(strokeId).set({
           ...drawing,

@@ -371,6 +371,113 @@ app.post('/api/leaveBoard', async (req, res) => {
   }
 });
 
+// Implement /api/editBoard endpoint
+app.post('/api/editBoard', async (req, res) => {
+  const { userId, boardId, newName } = req.body;
+  if (!userId || !boardId || !newName) {
+    return res.status(400).send('Missing userId, boardId, or newName');
+  }
+
+  try {
+    const boardRef = db.collection('boards').doc(boardId);
+    const boardDoc = await boardRef.get();
+
+    if (!boardDoc.exists) {
+      return res.status(404).send('Board not found');
+    }
+
+    const boardData = boardDoc.data();
+
+    // Only owner can edit the board
+    if (boardData.ownerId !== userId) {
+      return res.status(403).send('Only the owner can edit the board');
+    }
+
+    // Update the board name in top-level 'boards' collection
+    await boardRef.update({ name: newName });
+
+    // Update the board name in all user subcollections
+    const memberIds = boardData.members || [];
+    const batch = db.batch();
+
+    // Update owner subcollection
+    const ownerRef = db.collection('users').doc(userId).collection('boards').doc(boardId);
+    batch.update(ownerRef, { name: newName });
+
+    // Update member subcollections
+    memberIds.forEach(memberId => {
+      const memberBoardRef = db.collection('users').doc(memberId).collection('boards').doc(boardId);
+      batch.update(memberBoardRef, { name: newName });
+    });
+
+    await batch.commit();
+
+    console.log(`Board ${boardId} name updated to ${newName}`);
+    res.status(200).send('Board name updated successfully');
+  } catch (error) {
+    console.error('Error editing board:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Implement /api/deleteBoard endpoint
+app.delete('/api/deleteBoard', async (req, res) => {
+  const { userId, boardId } = req.body;
+  if (!userId || !boardId) {
+    return res.status(400).send('Missing userId or boardId');
+  }
+
+  try {
+    const boardRef = db.collection('boards').doc(boardId);
+    const boardDoc = await boardRef.get();
+
+    if (!boardDoc.exists) {
+      return res.status(404).send('Board not found');
+    }
+
+    const boardData = boardDoc.data();
+
+    // Only owner can delete the board
+    if (boardData.ownerId !== userId) {
+      return res.status(403).send('Only the owner can delete the board');
+    }
+
+    // Delete all elements in the board's elements subcollection
+    const elementsRef = boardRef.collection('elements');
+    const elementsSnapshot = await elementsRef.get();
+    const batch = db.batch();
+    elementsSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
+    // Remove the board from all members' subcollections
+    const memberIds = boardData.members || [];
+    const batchMembers = db.batch();
+
+    memberIds.forEach(memberId => {
+      const memberBoardRef = db.collection('users').doc(memberId).collection('boards').doc(boardId);
+      batchMembers.delete(memberBoardRef);
+    });
+
+    // Remove the board from the owner's subcollection
+    const ownerBoardRef = db.collection('users').doc(userId).collection('boards').doc(boardId);
+    batchMembers.delete(ownerBoardRef);
+
+    await batchMembers.commit();
+
+    // Delete the board from the top-level 'boards' collection
+    await boardRef.delete();
+
+    console.log(`Board ${boardId} deleted successfully`);
+    res.status(200).send('Board deleted successfully');
+  } catch (error) {
+    console.error('Error deleting board:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);

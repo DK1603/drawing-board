@@ -19,9 +19,10 @@ import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMous
 import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
-import { IoCloseSharp, IoText } from "react-icons/io5";
+import { IoCloseSharp, IoText, IoSquare, IoTriangle, IoEllipse, IoShapesOutline } from "react-icons/io5";
 import { FaHandPaper } from 'react-icons/fa';
 import { FaFont } from 'react-icons/fa';
+
 
 
 //for boardId
@@ -35,6 +36,9 @@ import { Document, Page, pdfjs } from 'react-pdf/dist/esm/entry.webpack';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
+const IoRectangle = IoSquare; // Alias IoSquare as IoRectangle
+const IoCircle = IoEllipse;  // Use IoEllipse for a circle icon
+const IoShapes = IoShapesOutline; // Use IoShapesOutline for a general shapes icon
 
 const hexToRGBA = (hex, opacity) => {
   let r = 0,
@@ -162,6 +166,10 @@ const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings, onD
 
 
 
+
+
+
+
 // Custom hook for canvas initialization and drawing logic using Fabric.js
 const useFabricCanvas = (
   canvasNode,
@@ -234,6 +242,12 @@ useEffect(() => {
     console.log('Broadcasting is available');
   }, []);
 
+
+
+
+
+
+
   // Function to update the brush settings (color, size, eraser mode)
   const updateBrushSettings = useCallback(
     (color, size, isErasing, opacity = 1) => {
@@ -264,7 +278,7 @@ useEffect(() => {
 
   const addDrawingToCanvas = useCallback(
     (drawing) => {
-      const { strokeId, type, imageData, left, top, scaleX, scaleY, points } = drawing;
+      const { strokeId, type, left, top, scaleX, scaleY, imageData, width, height, radius, fill, stroke, strokeWidth } = drawing;
       
       if (!type) {
         console.warn('Received drawing without type:', drawing);
@@ -276,6 +290,8 @@ useEffect(() => {
       const existingObject = fabricCanvasRef.current
         .getObjects()
         .find((o) => o.strokeId === strokeId);
+
+        let newObject; // Store the new object for each type
 
       if (existingObject && type !== 'draw') {
           // Modify the existing object
@@ -411,9 +427,48 @@ useEffect(() => {
         newText.strokeId = strokeId;
         fabricCanvasRef.current.add(newText);
         fabricCanvasRef.current.renderAll();
-      } else {
+      }  else if (type === 'rectangle') {
+        newObject = new fabric.Rect({
+          left,
+          top,
+          width,
+          height,
+          fill: fill || 'transparent',
+          stroke: stroke || 'black',
+          strokeWidth: strokeWidth || 2,
+        });
+      } else if (type === 'circle') {
+        newObject = new fabric.Circle({
+          left,
+          top,
+          radius,
+          fill: fill || 'transparent',
+          stroke: stroke || 'black',
+          strokeWidth: strokeWidth || 2,
+        });
+      } else if (type === 'triangle') {
+        newObject = new fabric.Triangle({
+          left,
+          top,
+          width,
+          height,
+          fill: fill || 'transparent',
+          stroke: stroke || 'black',
+          strokeWidth: strokeWidth || 2,
+        });
+      }
+     else {
         console.warn('Invalid drawing data received:', drawing);
       }  
+
+      if (newObject) {
+        newObject.strokeId = strokeId; // Assign strokeId to the object
+        fabricCanvasRef.current.add(newObject); // Add to the canvas
+        fabricCanvasRef.current.renderAll(); // Render the canvas
+      } else {
+        console.warn('Unsupported element type:', type);
+      }
+
     },
     [fabricCanvasRef]
   );
@@ -433,6 +488,39 @@ useEffect(() => {
 
     if (tool === 'brush') {
       fabricCanvasRef.current.isDrawingMode = true;
+      fabricCanvasRef.current.selection = false; // Disable group selection
+      fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
+
+      // Make all objects not selectable
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'default'; // Ensure cursor doesn't change
+      });
+    } else if (tool === 'rectangle') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false; // Disable group selection
+      fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
+
+      // Make all objects not selectable
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'default'; // Ensure cursor doesn't change
+      });
+    } else if (tool === 'triangle') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false; // Disable group selection
+      fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
+
+      // Make all objects not selectable
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'default'; // Ensure cursor doesn't change
+      });
+    } else if (tool === 'circle') {
+      fabricCanvasRef.current.isDrawingMode = false;
       fabricCanvasRef.current.selection = false; // Disable group selection
       fabricCanvasRef.current.defaultCursor = 'crosshair'; // Brush cursor
 
@@ -496,7 +584,6 @@ useEffect(() => {
         obj.hoverCursor = 'grab';
       });
     } 
-
 
     else {
       // Default case or selection tool
@@ -631,99 +718,162 @@ useEffect(() => {
         console.log("Element", e);
       });
       
-      // Mouse down event
-      fabricCanvasRef.current.on('mouse:down', (opt) => {
-        console.log('mouse:down event fired');
-        const tool = selectedToolRef.current;
-        const eMode = eraserModeRef.current;
+// Mouse down event
+// Mouse down event
+fabricCanvasRef.current.on('mouse:down', (opt) => {
+  console.log('mouse:down event fired');
 
+  const tool = selectedToolRef.current;
+  const eMode = eraserModeRef.current;
 
-        if (tool === 'hand') {
-          isPanningRef.current = true;
-          const pointer = fabricCanvasRef.current.getPointer(opt.e);
-          lastPosXRef.current = pointer.x;
-          lastPosYRef.current = pointer.y;
-          fabricCanvasRef.current.defaultCursor = 'grabbing';
-          opt.e.preventDefault();
-        }
+  // Get the pointer position (common for multiple tools)
+  const pointer = fabricCanvasRef.current.getPointer(opt.e);
 
-          if (tool === 'hand') {
-            isPanningRef.current = true;
-            fabricCanvasRef.current.selection = false; // Disable selection
-            fabricCanvasRef.current.defaultCursor = 'grabbing';
-            opt.e.preventDefault();
-          }
-        else if (tool === 'brush') {
-          // Start a new stroke
-          const pointer = fabricCanvasRef.current.getPointer(opt.e);
-          collectedPoints = [{ x: pointer.x, y: pointer.y }];
-          const timestamp = Date.now();
+  let shape;
+  let shapeData;
 
-          currentStrokeId = `${timestamp}_${uuidv4()}`;
-        } else if (tool === 'eraser') {
-          if (eMode === 'whiteEraser') {
-            // Start erasing with white color
-            const pointer = fabricCanvasRef.current.getPointer(opt.e);
-            collectedPoints = [{ x: pointer.x, y: pointer.y }];
-            const timestamp = Date.now();
+  if (tool === 'hand') {
+    isPanningRef.current = true;
+    fabricCanvasRef.current.selection = false; // Disable selection
+    fabricCanvasRef.current.defaultCursor = 'grabbing';
+    opt.e.preventDefault();
+  } else if (tool === 'brush') {
+    // Start a new stroke
+    collectedPoints = [{ x: pointer.x, y: pointer.y }];
+    const timestamp = Date.now();
 
-            currentStrokeId = `${timestamp}_${uuidv4()}`;
-          } else if (eMode === 'strokeEraser') {
-            // Initialize the set of deleted strokes
-            deletedStrokeIdsRef.current = new Set();
-          }
-        } else if (tool === 'text') {
-          const textId = `${Date.now()}_${uuidv4()}`
-          console.log("Color: ", brushColorRef.current);
-          const pointer = fabricCanvasRef.current.getPointer(opt.e);
-          const text = new fabric.IText('', {
-            left: pointer.x,
-            top: pointer.y,
-            fill: brushColorRef.current || '#000000',    
-            fontSize: textSizeRef.current || 20,  
-            selectable: true,
-            evented: true,
-            hoverCursor: 'text',
-            strokeId: `${Date.now()}_${uuidv4()}`,
-          });
-          fabricCanvasRef.current.add(text);
-          fabricCanvasRef.current.setActiveObject(text);
-          text.enterEditing(); // Puts the text object into editing mode
-      
-          // Handle when the user exits text editing
-          text.on('editing:exited', () => {
-            const textData = {
-              strokeId: text.strokeId,
-              type: 'text',
-              text: text.text,
-              left: text.left,
-              top: text.top,
-              fill: text.fill,
-              fontSize: text.fontSize,
-            };
-            if (broadcastDrawingRef.current && textData.text !== "") {
-              broadcastDrawingRef.current(textData);
-              // **Add to Undo stack**
-              setUndoStack((prev) => [...prev, textData]);
-              setRedoStack([]);
-            }
-            // Remove the event listener to prevent multiple broadcasts
-            text.selectable = true;
-            text.evented = true;
-            text.hoverCursor = 'text';
-            text.off('editing:exited');
-          });
-        }
-      
-      });
+    currentStrokeId = `${timestamp}_${uuidv4()}`;
+  } else if (tool === 'eraser') {
+    if (eMode === 'whiteEraser') {
+      // Start erasing with white color
+      collectedPoints = [{ x: pointer.x, y: pointer.y }];
+      const timestamp = Date.now();
+
+      currentStrokeId = `${timestamp}_${uuidv4()}`;
+    } else if (eMode === 'strokeEraser') {
+      // Initialize the set of deleted strokes
+      deletedStrokeIdsRef.current = new Set();
+    }
+  } else if (tool === 'rectangle') {
+    shape = new fabric.Rect({
+      left: pointer.x,
+      top: pointer.y,
+      width: 100,
+      height: 50,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    });
+    shapeData = {
+      type: 'rectangle',
+      strokeId: `${Date.now()}_${uuidv4()}`,
+      left: pointer.x,
+      top: pointer.y,
+      width: 100,
+      height: 50,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    };
+  } else if (tool === 'circle') {
+    shape = new fabric.Circle({
+      left: pointer.x - 50,
+      top: pointer.y - 50,
+      radius: 50,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    });
+    shapeData = {
+      type: 'circle',
+      strokeId: `${Date.now()}_${uuidv4()}`,
+      left: pointer.x - 50,
+      top: pointer.y - 50,
+      radius: 50,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    };
+  } else if (tool === 'triangle') {
+    shape = new fabric.Triangle({
+      left: pointer.x,
+      top: pointer.y,
+      width: 100,
+      height: 100,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    });
+    shapeData = {
+      type: 'triangle',
+      strokeId: `${Date.now()}_${uuidv4()}`,
+      left: pointer.x,
+      top: pointer.y,
+      width: 100,
+      height: 100,
+      fill: 'transparent',
+      stroke: brushColorRef.current || 'black',
+      strokeWidth: 2,
+    };
+  }
+
+  if (shape) {
+    shape.strokeId = shapeData.strokeId; // Assign unique strokeId
+    fabricCanvasRef.current.add(shape); // Add shape to canvas
+    fabricCanvasRef.current.renderAll();
+
+    // Broadcast the shape to other clients if needed
+    if (broadcastDrawingRef.current) {
+      broadcastDrawingRef.current(shapeData);
+    }
+  } else if (tool === 'text') {
+    const textId = `${Date.now()}_${uuidv4()}`;
+    const text = new fabric.IText('', {
+      left: pointer.x,
+      top: pointer.y,
+      fill: brushColorRef.current || '#000000',
+      fontSize: textSizeRef.current || 20,
+      selectable: true,
+      evented: true,
+      hoverCursor: 'text',
+      strokeId: textId,
+    });
+    fabricCanvasRef.current.add(text);
+    fabricCanvasRef.current.setActiveObject(text);
+    text.enterEditing(); // Puts the text object into editing mode
+
+    // Handle when the user exits text editing
+    text.on('editing:exited', () => {
+      const textData = {
+        strokeId: text.strokeId,
+        type: 'text',
+        text: text.text,
+        left: text.left,
+        top: text.top,
+        fill: text.fill,
+        fontSize: text.fontSize,
+      };
+      if (broadcastDrawingRef.current && textData.text !== '') {
+        broadcastDrawingRef.current(textData);
+        // Add to Undo stack
+        setUndoStack((prev) => [...prev, textData]);
+        setRedoStack([]);
+      }
+      // Remove the event listener to prevent multiple broadcasts
+      text.selectable = true;
+      text.evented = true;
+      text.hoverCursor = 'text';
+      text.off('editing:exited');
+    });
+  }
+});
 
       // Mouse move event
       fabricCanvasRef.current.on('mouse:move', (opt) => {
         if (opt.e.buttons !== 1) return; // Only when mouse button is pressed
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
-
-
+  
         if (isPanningRef.current && tool === 'hand') {
           const e = opt.e;
           const delta = new fabric.Point(e.movementX, e.movementY);
@@ -798,6 +948,7 @@ useEffect(() => {
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
 
+        
 
         if (tool === 'hand') {
           isPanningRef.current = false;
@@ -1081,7 +1232,18 @@ const Canvas = forwardRef(
 
     // Valid boardId for desk access
     const { boardId } = useParams();
-   
+    //Shape Dropdown
+    const [isShapeOptionsVisible, setIsShapeOptionsVisible] = useState(false); // Dropdown visibility
+ 
+
+    
+    
+
+// Add these refs:
+const currentShapeRef = useRef(null); // Reference for the currently active shape
+const currentShapeDataRef = useRef(null); // Reference for the shape's data
+
+
 
     const [isLoading, setIsLoading] = useState(true); // State to track loading status
     const [initialDrawings, setInitialDrawings] = useState([]); // State for initial drawings
@@ -1695,6 +1857,57 @@ return (
             </div>
           </div>
         )}
+{/* Shape Tool Button */}
+<button
+  className={`${styles.toolButton} ${
+    ['rectangle', 'triangle', 'circle'].includes(selectedTool) ? styles.activeTool : ''
+  }`}
+  onClick={() => setIsShapeOptionsVisible((prev) => !prev)}
+  aria-pressed={['rectangle', 'triangle', 'circle'].includes(selectedTool)}
+  aria-label="Select Shape Tool"
+>
+  {selectedTool === 'rectangle' && <IoRectangle className={styles.icon} />}
+  {selectedTool === 'triangle' && <IoTriangle className={styles.icon} />}
+  {selectedTool === 'circle' && <IoCircle className={styles.icon} />}
+  {!['rectangle', 'triangle', 'circle'].includes(selectedTool) && <IoShapes className={styles.icon} />}
+  Shape
+</button>
+
+{/* Shape Options Dropdown */}
+{isShapeOptionsVisible && (
+  <div className={styles.shapeOptions}>
+    <button
+      onClick={() => {
+        setSelectedTool('rectangle');
+        setIsShapeOptionsVisible(false); // Close dropdown
+      }}
+      aria-label="Rectangle Tool"
+    >
+      <IoRectangle className={styles.icon} />
+    </button>
+    <button
+      onClick={() => {
+        setSelectedTool('circle');
+        setIsShapeOptionsVisible(false); // Close dropdown
+      }}
+      aria-label="Circle Tool"
+    >
+      <IoCircle className={styles.icon} />
+    </button>
+    <button
+      onClick={() => {
+        setSelectedTool('triangle');
+        setIsShapeOptionsVisible(false); // Close dropdown
+      }}
+      aria-label="Triangle Tool"
+    >
+      <IoTriangle className={styles.icon} />
+    </button>
+  </div>
+)}
+
+
+
 
         {/* Select Tool */}
         <button

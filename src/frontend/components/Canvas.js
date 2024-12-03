@@ -20,7 +20,7 @@ import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
 import { IoCloseSharp, IoText } from "react-icons/io5";
-
+import { FaHandPaper } from 'react-icons/fa';
 import { FaFont } from 'react-icons/fa';
 
 
@@ -192,6 +192,12 @@ const useFabricCanvas = (
       });
     };
   })(fabric.Object.prototype.toObject);
+
+  // Initialize panning state variables
+const isPanningRef = useRef(false);
+const lastPosXRef = useRef(0);
+const lastPosYRef = useRef(0);
+
 
   
   useEffect(() => {
@@ -478,9 +484,21 @@ useEffect(() => {
         obj.evented = true;
         obj.hoverCursor = 'move';
       });
+    } else if (tool === 'hand') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false;
+      fabricCanvasRef.current.defaultCursor = 'grab';
+    
+      // Make all objects not selectable and not evented
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+        obj.hoverCursor = 'grab';
+      });
+    } 
 
 
-    } else {
+    else {
       // Default case or selection tool
       fabricCanvasRef.current.isDrawingMode = false;
       fabricCanvasRef.current.selection = false;
@@ -619,7 +637,23 @@ useEffect(() => {
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
 
-        if (tool === 'brush') {
+
+        if (tool === 'hand') {
+          isPanningRef.current = true;
+          const pointer = fabricCanvasRef.current.getPointer(opt.e);
+          lastPosXRef.current = pointer.x;
+          lastPosYRef.current = pointer.y;
+          fabricCanvasRef.current.defaultCursor = 'grabbing';
+          opt.e.preventDefault();
+        }
+
+          if (tool === 'hand') {
+            isPanningRef.current = true;
+            fabricCanvasRef.current.selection = false; // Disable selection
+            fabricCanvasRef.current.defaultCursor = 'grabbing';
+            opt.e.preventDefault();
+          }
+        else if (tool === 'brush') {
           // Start a new stroke
           const pointer = fabricCanvasRef.current.getPointer(opt.e);
           collectedPoints = [{ x: pointer.x, y: pointer.y }];
@@ -689,7 +723,14 @@ useEffect(() => {
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
 
-        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser') && tool !== 'resizeMode') {
+
+        if (isPanningRef.current && tool === 'hand') {
+          const e = opt.e;
+          const delta = new fabric.Point(e.movementX, e.movementY);
+          fabricCanvasRef.current.relativePan(delta);
+          e.preventDefault();
+        }
+        else if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser') && tool !== 'resizeMode') {
           console.log('mouse:move event fired');
           const pointer = fabricCanvasRef.current.getPointer(opt.e);
           collectedPoints.push({ x: pointer.x, y: pointer.y });
@@ -752,12 +793,18 @@ useEffect(() => {
       });
 
       // Mouse up event
-      fabricCanvasRef.current.on('mouse:up', () => {
+      fabricCanvasRef.current.on('mouse:up', (opt) => {
         console.log('mouse:up event fired');
         const tool = selectedToolRef.current;
         const eMode = eraserModeRef.current;
 
-        if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
+
+        if (tool === 'hand') {
+          isPanningRef.current = false;
+          fabricCanvasRef.current.defaultCursor = 'grab';
+          opt.e.preventDefault();
+        }
+        else if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
           if (broadcastDrawingRef.current) {
             // Send the entire stroke to the server for saving
             const brush = fabricCanvasRef.current.freeDrawingBrush;
@@ -860,11 +907,16 @@ useEffect(() => {
 
 
 
+//CAPTURE MODE BEGINNING
+
 const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
   let isSelecting = false;
   let selectionRect;
   let startPointer;
   
+ 
+
+
   useEffect(() => {
   if (captureMode && selectionRect) {
     // Remove the selection rectangle from the canvas
@@ -875,14 +927,36 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
 }, [captureMode]);
 
   useEffect(() => {
-  if (!fabricCanvasRef.current) return;
+  if (!fabricCanvasRef.current) {
+    console.warn('Canvas reference is not initialized');
+    return;
+  }
 
   const canvas = fabricCanvasRef.current;
 
+  console.log('Canvas initialized:', canvas);
+
+  const toggleObjectInteractivity = (isInteractive) => {
+    canvas.getObjects().forEach((obj) => {
+      obj.selectable = isInteractive;
+      obj.evented = isInteractive;
+    });
+  };
+
   if (captureMode) {
     canvas.isDrawingMode = false; // Disable drawing when capture mode is on
+    toggleObjectInteractivity(false);
+    console.log('Capture mode enabled: Binding events');
+    /*canvas.on('mouse:down CAP ', handleMouseDown);
+    canvas.on('mouse:move CAP', handleMouseMove);
+    canvas.on('mouse:up CAP', handleMouseUp);*/
   } else {
     canvas.isDrawingMode = true; // Re-enable drawing when capture mode is off
+
+    console.log('Capture mode disabled: Unbinding events');
+    /*canvas.off('mouse:down CAP', handleMouseDown);
+    canvas.off('mouse:move CAP', handleMouseMove);
+    canvas.off('mouse:up CAP', handleMouseUp);*/
     // Optionally clear any active selection rectangle
     if (selectionRect) {
       canvas.remove(selectionRect);
@@ -893,7 +967,9 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
 
     // Mouse down event
     const handleMouseDown = (options) => {
+      console.log('Mouse down CAP event triggered');
       if (!captureMode) return;
+      options.e.stopPropagation();
       isSelecting = true;
       startPointer = canvas.getPointer(options.e);
 
@@ -914,7 +990,9 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
 
     // Mouse move event
     const handleMouseMove = (options) => {
+      console.log('Mouse move CAP event triggered');
       if (!isSelecting || !selectionRect) return;
+      options.e.stopPropagation();
       const pointer = canvas.getPointer(options.e);
       const width = Math.abs(pointer.x - startPointer.x);
       const height = Math.abs(pointer.y - startPointer.y);
@@ -931,70 +1009,44 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
 
     // Mouse up event
     const handleMouseUp = async () => {
+      console.log('Capture Mode State on MouseUp:', captureMode);
       if (!isSelecting || !captureMode) return;
+      //options.e.stopPropagation();
+      console.log('Mouse up event');
       isSelecting = false;
 
       const { left, top, width, height } = selectionRect;
 
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = width;
-      tempCanvas.height = height;
-      const tempCtx = tempCanvas.getContext('2d');
-      const originalCanvas = canvas.lowerCanvasEl;
+      // Create a temporary canvas to capture the selection
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d');
+  const originalCanvas = fabricCanvasRef.current.lowerCanvasEl;
 
-      tempCtx.drawImage(
-        originalCanvas,
-        left,
-        top,
-        width,
-        height,
-        0,
-        0,
-        width,
-        height
-      );
+  // Draw the selected area onto the temporary canvas
+  tempCtx.drawImage(
+    originalCanvas,
+    left,
+    top,
+    width,
+    height,
+    0,
+    0,
+    width,
+    height
+  );
 
-      const imageDataURL = tempCanvas.toDataURL();
+  // Convert the temporary canvas to a Base64 string
+  const imageDataURL = tempCanvas.toDataURL(); // Default is 'image/png'
 
-     /* try {
-  const result = await Tesseract.recognize(imageDataURL, 'eng', {
-    logger: (m) => console.log(m), // Optional: log progress
-  });
+  const base64Image = imageDataURL.split(',')[1];
+  console.log('Captured Base64 Image:', base64Image);
 
-  // Store OCR result in a variable
-  const ocrText = result.data.text;
-
-  // Log and optionally display it
-  console.log('OCR Result:', ocrText);
-  alert('OCR Result: ' + ocrText);
-
-  // Use ocrText for further processing, e.g., sending it to a ChatGPT API function
-  // Example: sendToChatbot(ocrText);
-} catch (error) {
-  console.error('Error processing OCR:', error);
-}*/
+  sendExternalMessage(base64Image, true);
 
 
-try {
-  const result = await Tesseract.recognize(imageDataURL, 'eng', {
-    logger: (m) => console.log(m),
-  });
-  const ocrText = result.data.text; // Store OCR result in a variable
-  console.log('OCR Result:', ocrText);
-
-  const userProvidedText = prompt("Add any extra information you'd like to include:");
-  const combinedText = `${ocrText} ${userProvidedText}`;
-
-  // Call the function to send the combined text to ChatGPT
-  sendExternalMessage(combinedText);
   
-  alert('OCR Result: ' + combinedText);
-
-  // Call the function to send the OCR result to the chatbot
-  //sendExternalMessage(ocrText); // Ensure sendExternalMessage is accessible
-} catch (error) {
-  console.error('Error processing OCR:', error);
-}
 
       canvas.remove(selectionRect);
     };
@@ -1014,6 +1066,10 @@ try {
 //return { setCaptureMode };
 
 };
+
+
+//CAPTURE MODE END
+
 
 
 
@@ -1390,6 +1446,9 @@ const Canvas = forwardRef(
       setRedoStack     
     );
 
+//capture init
+    useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
+
     
     // Handle receiving drawing data from the server
     const handleReceiveDrawing = useCallback(
@@ -1541,6 +1600,21 @@ return (
         >
           <FaHighlighter className={styles.icon} /> Highlighter
         </button>
+
+{/* Hand Tool */}
+<button
+  className={`${styles.toolButton} ${
+    selectedTool === 'hand' ? styles.activeTool : ''
+  }`}
+  onClick={() => {
+    setSelectedTool('hand');
+    console.log('Hand tool selected');
+  }}
+  aria-pressed={selectedTool === 'hand'}
+  aria-label="Hand Tool"
+>
+  <FaHandPaper className={styles.icon} /> Hand
+</button>
 
         {/* Eraser Tool */}
         <button
@@ -1739,6 +1813,8 @@ return (
         >
           <FaShareAlt className={styles.icon} /> Share Link
         </button>
+        
+       
 
         {/* Clear Canvas */}
         <button
@@ -1894,8 +1970,8 @@ return (
           }
         }}
         id="main-canvas"
-        width={window.innerWidth}
-        height={window.innerHeight * 10}
+        width={window.innerWidth * 4}
+        height={window.innerHeight * 4}
         className={styles.canvas}
       />
     </div>

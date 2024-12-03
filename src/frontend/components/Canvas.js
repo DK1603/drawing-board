@@ -1634,6 +1634,39 @@ return (
         >
           <FaMouse className={styles.icon} /> Select
         </button>
+
+        {/* Options Menu Icon */}
+        <button
+          className={styles.optionsMenuButton}
+          onClick={toggleOptionsMenu}
+          aria-label="More Options"
+        >
+          <FaEllipsisH className={styles.icon} />
+        </button>
+
+        {/* Options Menu Dropdown */}
+        {isOptionsMenuVisible && (
+          <div className={styles.optionsMenu}>
+            {/* Toggle Chatbot */}
+            <button
+              className={styles.optionsMenuItem}
+              onClick={toggleChatbot}
+              aria-label="Toggle Chatbot"
+            >
+              <FaRobot className={styles.icon} /> Chatbot
+            </button>
+
+            {/* Toggle Capture Mode */}
+            <button
+              className={styles.optionsMenuItem}
+              onClick={toggleCaptureMode}
+              aria-label="Toggle Capture Mode"
+            >
+              <FaCamera className={styles.icon} />{' '}
+              {captureMode ? 'Capture Mode ON' : 'Capture Mode OFF'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Center Group: Undo/Redo */}

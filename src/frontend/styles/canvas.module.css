@@ -28,53 +28,77 @@
 /* Toolbar */
 .toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  padding: 8px 16px;
+  padding: 10px 30px; /* More padding for a balanced layout */
   background-color: #ffffff;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 12px; /* Softer corners for a modern look */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1); /* Enhanced shadow for depth */
   z-index: 1000;
   position: fixed; /* Fixed at the top */
-  top: 0;
-  left: 0;
-  right: 0;
-  transition: background-color 0.3s;
+  top: 20px; /* Space from the top */
+  left: 40px; /* Space from the left */
+  right: 40px; /* Space from the right */
+  margin: 8px 200px; /* Center alignment */
+  max-width: calc(100% - 80px); /* Ensure toolbar stays within screen bounds */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .toolbar:hover {
   background-color: #f7f7f7;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* Toolbar Groups */
+.toolButton:nth-child(3) {
+  order: 1;
+}
+
+.toolButton:nth-child(5) {
+  order: 2;
+}
+
+.toolButton:nth-child(4) {
+  order: 3;
+}
+
+.toolButton:nth-child(5) {
+  order: 4;
+}
+.toolButton:nth-child(7){
+  order: 4;
+}
+
 .toolbarGroup,
 .toolbarGroupCenter,
 .toolbarGroupRight {
   display: flex;
   align-items: center;
-}
-
-.toolbarGroupRight {
-  gap: 10px;
+  gap: 15px; /* Consistent spacing between toolbar items */
 }
 
 .toolbarGroupCenter {
-  gap: 10px;
+  justify-content: center;
+}
+
+.toolbarGroupRight {
+  justify-content: flex-end;
 }
 
 /* Tool Buttons */
 .toolButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-right: 8px;
-  padding: var(--button-padding);
+  justify-content: center;
+  gap: 8px; /* Spacing between icon and text */
+  padding: 10px 16px; /* Comfortable padding for better accessibility */
   background-color: #ffffff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  border: 1px solid #ddd;
+  border-radius: 8px; /* Rounded edges for a sleek look */
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
-  font-size: var(--font-size-base);
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+  font-size: 14px; /* Standard button text size */
+  font-weight: 500; /* Emphasized text for readability */
+  color: #333; /* Neutral color for text */
 }
 
 .toolButton:last-child {
@@ -82,10 +106,21 @@
 }
 
 .toolButton:hover {
-  background-color: #f0f0f0;
+  background-color: #e9e9e9;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* Add spacing between toolbar buttons */
+.toolbarGroup > .toolButton {
+  margin: 0 10px; /* Spacing between buttons */
+}
+
+.toolButton:active {
+  transform: translateY(0); /* Remove hover effect on click */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
 
 .activeTool {
   background-color: var(--primary-color);

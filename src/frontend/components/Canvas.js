@@ -20,7 +20,7 @@ import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
 import { IoCloseSharp, IoText } from "react-icons/io5";
-
+import { IoMdUndo, IoMdRedo } from "react-icons/io";
 import { FaFont } from 'react-icons/fa';
 
 
@@ -1523,7 +1523,7 @@ return (
           aria-pressed={selectedTool === 'brush' && brushOpacity === 1}
           aria-label="Draw Tool"
         >
-          <FaPencilAlt className={styles.icon} /> Draw
+          <FaPencilAlt className={styles.icon} />
         </button>
 
         {/* Highlighter Tool */}
@@ -1539,7 +1539,7 @@ return (
           aria-pressed={selectedTool === 'brush' && brushOpacity === 0.3}
           aria-label="Highlighter Tool"
         >
-          <FaHighlighter className={styles.icon} /> Highlighter
+          <FaHighlighter className={styles.icon} />
         </button>
 
         {/* Eraser Tool */}
@@ -1555,7 +1555,7 @@ return (
           aria-pressed={selectedTool === 'eraser'}
           aria-label="Eraser Tool"
         >
-          <FaEraser className={styles.icon} /> Erase
+          <FaEraser className={styles.icon} /> 
         </button>
 
         {/* Eraser Options */}
@@ -1597,7 +1597,7 @@ return (
           aria-pressed={selectedTool === 'text'}
           aria-label="Text Tool"
         >
-          <IoText className={styles.icon} /> Text
+          <IoText className={styles.icon} />
         </button>
 
         {/* Text Options */}
@@ -1632,12 +1632,9 @@ return (
           aria-pressed={selectedTool === 'select'}
           aria-label="Select Tool"
         >
-          <FaMouse className={styles.icon} /> Select
+          <FaMouse className={styles.icon} /> 
         </button>
       </div>
-
-      {/* Center Group: Undo/Redo */}
-      <div className={styles.toolbarGroupCenter}>
         {/* Undo */}
         <button
           className={styles.toolButton}
@@ -1646,7 +1643,8 @@ return (
           title="Undo"
           aria-label="Undo"
         >
-          ↩️ Undo
+          <IoMdUndo className={styles.icon}/>
+
         </button>
 
         {/* Redo */}
@@ -1657,9 +1655,10 @@ return (
           title="Redo"
           aria-label="Redo"
         >
-          ↪️ Redo
+          <IoMdRedo className={styles.icon}/>
+
         </button>
-      </div>
+      
 
       {/* Right Group: Upload, Share, Clear Canvas, Sign Out */}
       <div className={styles.toolbarGroupRight}>
@@ -1670,7 +1669,7 @@ return (
             onClick={toggleUploadMenu}
             aria-label="Upload File"
           >
-            <FaCloudUploadAlt className={styles.icon} /> Upload
+            <FaCloudUploadAlt className={styles.icon} />
           </button>
           {isUploadMenuVisible && (
             <div className={styles.uploadMenu}>
@@ -1704,7 +1703,7 @@ return (
           onClick={toggleShareLinkModal}
           aria-label="Share Link"
         >
-          <FaShareAlt className={styles.icon} /> Share Link
+          <FaShareAlt className={styles.icon} /> 
         </button>
 
         {/* Clear Canvas */}
@@ -1716,7 +1715,7 @@ return (
           }}
           aria-label="Clear Canvas"
         >
-          <FaTrashCan className={styles.icon} /> Clear Canvas
+          <FaTrashCan className={styles.icon} /> 
         </button>
 
         {/* Sign Out */}

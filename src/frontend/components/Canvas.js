@@ -1509,7 +1509,7 @@ return (
     <div className={styles.toolbar}>
       {/* Left Group: Drawing Tools */}
       <div className={styles.toolbarGroup}>
-        {/* Draw Tool */}
+         {/* Draw Tool */}
         <button
           className={`${styles.toolButton} ${
             selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''
@@ -1637,7 +1637,7 @@ return (
 
         {/* Options Menu Icon */}
         <button
-          className={styles.optionsMenuButton}
+          className={styles.toolButton}
           onClick={toggleOptionsMenu}
           aria-label="More Options"
         >
@@ -1649,7 +1649,7 @@ return (
           <div className={styles.optionsMenu}>
             {/* Toggle Chatbot */}
             <button
-              className={styles.optionsMenuItem}
+              className={styles.toolButton}
               onClick={toggleChatbot}
               aria-label="Toggle Chatbot"
             >
@@ -1658,7 +1658,7 @@ return (
 
             {/* Toggle Capture Mode */}
             <button
-              className={styles.optionsMenuItem}
+              className={styles.toolButton}
               onClick={toggleCaptureMode}
               aria-label="Toggle Capture Mode"
             >
@@ -1760,7 +1760,7 @@ return (
           Sign Out
         </button>
       </div>
-    </div>
+
 
     {/* Share Link Modal */}
     {isShareLinkModalVisible && (
@@ -1880,6 +1880,7 @@ return (
         </button>
       </div>
     )}
+    </div>
 
     {/* Canvas Wrapper */}
     <div className={styles.canvasWrapper}>

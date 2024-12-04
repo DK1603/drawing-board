@@ -19,6 +19,11 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+
+
+app.use(express.urlencoded({ extended: true })); // Optional for URL-encoded data
+
+
 app.use(cors());
 app.use(express.json()); // Parse JSON for express
 
@@ -176,6 +181,17 @@ io.on('connection', (socket) => {
         console.log(`Text saved successfully with strokeId: ${strokeId}`);
         break;
 
+        case 'rectangle':
+          case 'circle':
+          case 'triangle':
+            // Save Shape Element
+            await elementsRef.doc(strokeId).set({
+              ...drawing, // Includes shape-specific properties like width, height, radius
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} saved successfully with strokeId: ${strokeId}`);
+            break;
+            
       case 'modify':
         // Modify Existing Element
         if (strokeId) {
@@ -475,6 +491,51 @@ app.delete('/api/deleteBoard', async (req, res) => {
   } catch (error) {
     console.error('Error deleting board:', error);
     res.status(500).send('Internal Server Error');
+  }
+});
+
+// Add an endpoint for OpenAI API integration
+const axios = require('axios');
+
+app.post('/api/chat', async (req, res) => {
+
+console.log('Received payload:', JSON.stringify(req.body, null, 2));
+
+  const { messages, model } = req.body;
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).send('Invalid request: "messages" must be an array.');
+  }
+  
+   
+  
+
+  try {
+    // Prepare the payload for OpenAI API
+    const payload = {
+      model: model || 'gpt-4', // Use GPT-4 as the default model
+      messages,
+    };
+
+    // Make a request to OpenAI's API
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer sk-svcacct-bHgFHgSSP2KfGILAQO69j28oL7V1Ov1xHwfxYxesUiYSzIiiJU8W7c7DviebWj-qerAT3BlbkFJO6PuYmGp87IikScE63If-_aMoabuxahfTFOxaxngRJlePLAlgyfkssuzeXWYmzTGRLAA`, // Use the API key from environment variables
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    // Return the response from OpenAI to the client
+    res.status(200).json(response.data);
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error.response ? error.response.data : error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || 'Internal Server Error',
+    });
   }
 });
 

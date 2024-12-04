@@ -1571,7 +1571,7 @@ return (
       <div className={styles.toolbarGroup}>
          {/* Draw Tool */}
         <button
-          className={`${styles.toolButton} ${
+          className={`${styles.toolButton} ${styles.draw} ${
             selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''
           }`}
           onClick={() => {
@@ -1588,7 +1588,7 @@ return (
 
         {/* Highlighter Tool */}
         <button
-          className={`${styles.toolButton} ${
+          className={`${styles.toolButton} ${styles.highlighter} ${
             selectedTool === 'brush' && brushOpacity === 0.3 ? styles.activeTool : ''
           }`}
           onClick={() => {
@@ -1599,12 +1599,12 @@ return (
           aria-pressed={selectedTool === 'brush' && brushOpacity === 0.3}
           aria-label="Highlighter Tool"
         >
-          <FaHighlighter className={styles.icon} /> Highlighter
+          <FaHighlighter className={styles.icon} />
         </button>
 
 {/* Hand Tool */}
 <button
-  className={`${styles.toolButton} ${
+  className={`${styles.toolButton} ${styles.hand}${
     selectedTool === 'hand' ? styles.activeTool : ''
   }`}
   onClick={() => {
@@ -1614,12 +1614,12 @@ return (
   aria-pressed={selectedTool === 'hand'}
   aria-label="Hand Tool"
 >
-  <FaHandPaper className={styles.icon} /> Hand
+  <FaHandPaper className={styles.icon} />
 </button>
 
         {/* Eraser Tool */}
         <button
-          className={`${styles.toolButton} ${
+          className={`${styles.toolButton} ${styles.eraser} ${
             selectedTool === 'eraser' ? styles.activeTool : ''
           }`}
           onClick={() => {
@@ -1663,7 +1663,7 @@ return (
 
         {/* Text Tool */}
         <button
-          className={`${styles.toolButton} ${selectedTool === 'text' ? styles.activeTool : ''}`}
+          className={`${styles.toolButton} ${styles.text} ${selectedTool === 'text' ? styles.activeTool : ''}`}
           onClick={() => {
             setSelectedTool('text');
             setIsTextOptionsVisible(!isTextOptionsVisible);
@@ -1699,7 +1699,7 @@ return (
 
         {/* Select Tool */}
         <button
-          className={`${styles.toolButton} ${selectedTool === 'select' ? styles.activeTool : ''}`}
+          className={`${styles.toolButton} ${styles.select} ${selectedTool === 'select' ? styles.activeTool : ''}`}
           onClick={() => {
             setSelectedTool('select');
             console.log('Select tool selected');
@@ -1744,8 +1744,9 @@ return (
         )}
       </div>
         {/* Undo */}
+        
         <button
-          className={styles.toolButton}
+          className={`${styles.toolButton} ${styles.undo}`}
           onClick={handleUndo}
           disabled={undoStack.length === 0}
           title="Undo"
@@ -1757,7 +1758,7 @@ return (
 
         {/* Redo */}
         <button
-          className={styles.toolButton}
+          className={`${styles.toolButton} ${styles.redo}`}
           onClick={handleRedo}
           disabled={redoStack.length === 0}
           title="Redo"
@@ -1771,7 +1772,7 @@ return (
       {/* Right Group: Upload, Share, Clear Canvas, Sign Out */}
       <div className={styles.toolbarGroupRight}>
         {/* Upload PDF Button */}
-        <div className={styles.uploadWrapper}>
+        
           <button
             className={styles.toolButton}
             onClick={toggleUploadMenu}
@@ -1818,7 +1819,7 @@ return (
 
         {/* Clear Canvas */}
         <button
-          className={styles.toolButton}
+          className={`${styles.toolButton} ${styles.clear}`}
           onClick={() => {
             clearSocketCanvas();
             console.log('Clear Canvas button clicked');
@@ -1957,7 +1958,7 @@ return (
         </button>
       </div>
     )}
-    </div>
+    
 
     {/* Canvas Wrapper */}
     <div className={styles.canvasWrapper}>

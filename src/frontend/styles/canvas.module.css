@@ -77,49 +77,63 @@
   transition: background-color 0.3s, transform 0.2s;
 }
 
+.toolButton.draw {
+  order: 1;
+}
+
+.toolButton.highlighter {
+  order: 2;
+}
+
+.toolButton.eraser {
+  order: 3;
+}
+
+.toolButton.text {
+  order: 4;
+}
+.toolButton.undo {
+  order: 5;
+}
+
+.toolButton.redo {
+  order: 6;
+}
+
+.toolButton.clear {
+  order: 7;
+}
+
+.toolButton.select {
+  order: 8;
+}
+
+
+.toolButton.options {
+  order: 13;
+}
+
+
+
+
+
+.toolButton.share {
+  order: 14;
+}
+
+.toolButton.sign-out {
+  order: 9;
+}
+.toolButton.hand {
+  order: 10;
+}
+
 .toolButton:hover {
   background-color: #e9e9e9;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Order Buttons */
-.toolButton:nth-child(1) {
-  order: 1;
-}
-.toolButton:nth-child(2) {
-  order: 2;
-}
-.toolButton:nth-child(3) {
-  order: 3;
-}
-.toolButton:nth-child(4) {
-  order: 4;
-}
-.toolButton:nth-child(5) {
-  order: 5;
-}
-.toolButton:nth-child(6) {
-  order: 6;
-}
-.toolButton:nth-child(7) {
-  order: 7;
-}
-.toolButton:nth-child(8) {
-  order: 8;
-}
-.toolButton:nth-child(9) {
-  order: 9;
-}
-.toolButton:nth-child(10) {
-  order: 10;
-}
-.toolButton:nth-child(11) {
-  order: 11;
-}
-.toolButton:nth-child(12) {
-  order: 12;
-}
 
 /* Add spacing between toolbar buttons */
 .toolbarGroup > .toolButton {

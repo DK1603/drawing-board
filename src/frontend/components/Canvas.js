@@ -207,6 +207,40 @@ const lastPosXRef = useRef(0);
 const lastPosYRef = useRef(0);
 
 
+const restrictPanning = (canvas, canvasBounds) => {
+  canvas.on('mouse:up', () => {
+    // Delay restriction logic slightly to avoid interfering with hand tool actions
+    setTimeout(() => {
+      const transform = canvas.viewportTransform;
+      if (!transform) return;
+
+      const left = transform[4]; // Current horizontal translation
+      const top = transform[5];  // Current vertical translation
+
+      // Calculate restricted positions
+      const adjustedLeft = Math.min(
+        Math.max(left, canvasBounds.right - canvas.getWidth()),
+        canvasBounds.left
+      );
+
+      const adjustedTop = Math.min(
+        Math.max(top, canvasBounds.bottom - canvas.getHeight()),
+        canvasBounds.top
+      );
+
+      // Apply corrections only if the canvas is out of bounds
+      if (left !== adjustedLeft || top !== adjustedTop) {
+        transform[4] = adjustedLeft;
+        transform[5] = adjustedTop;
+        canvas.requestRenderAll();
+      }
+    }, 10); // Delay to ensure hand tool actions are complete
+  });
+};
+
+
+
+
   
   useEffect(() => {
     brushColorRef.current = brushColor;
@@ -218,13 +252,7 @@ const lastPosYRef = useRef(0);
 
   fabric.Object.prototype.stateProperties.push('strokeId');
   
-/*tesseract
-useEffect(() => {
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.isDrawingMode = !captureMode; // Disable drawing when captureMode is true
-    }
-  }, [captureMode]);
-*/
+
   // Update refs when selectedTool or eraserMode changes
   useEffect(() => {
     selectedToolRef.current = selectedTool;
@@ -242,7 +270,18 @@ useEffect(() => {
     console.log('Broadcasting is available');
   }, []);
 
-
+  useEffect(() => {
+    if (fabricCanvasRef.current) {
+      const canvasWrapper = document.querySelector('.canvasWrapper');
+      if (canvasWrapper) {
+        const transform = fabricCanvasRef.current.viewportTransform;
+        if (transform) {
+          canvasWrapper.scrollLeft = -transform[4]; // Set horizontal scroll
+          canvasWrapper.scrollTop = -transform[5]; // Set vertical scroll
+        }
+      }
+    }
+  }, []);
 
 
 
@@ -618,6 +657,23 @@ useEffect(() => {
       let currentStrokeId = null;
       let lastSentTime = 0; // Timestamp for throttling
 
+      const canvas = fabricCanvasRef.current;
+
+      // Dynamically calculate canvas bounds based on dimensions
+      const canvasBounds = {
+        left: 0, // Leftmost allowable pan
+        top: 0, // Topmost allowable pan
+        right: 500, // Rightmost allowable pan
+        bottom: 500, // Bottommost allowable pan
+      };
+      
+  
+      // Apply restrictions
+      restrictPanning(canvas, canvasBounds);
+      
+
+
+
 
  
       let startGroupTransform = { left: 0, top: 0, scaleX: 1, scaleY: 1 };
@@ -876,10 +932,11 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
   
         if (isPanningRef.current && tool === 'hand') {
           const e = opt.e;
-          const delta = new fabric.Point(e.movementX, e.movementY);
-          fabricCanvasRef.current.relativePan(delta);
-          e.preventDefault();
+          const delta = new fabric.Point(e.movementX, e.movementY); // Calculate movement delta
+          fabricCanvasRef.current.relativePan(delta); // Pan the canvas
+          e.preventDefault(); // Prevent default browser behavior
         }
+        
         else if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser') && tool !== 'resizeMode') {
           console.log('mouse:move event fired');
           const pointer = fabricCanvasRef.current.getPointer(opt.e);
@@ -951,9 +1008,9 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
         
 
         if (tool === 'hand') {
-          isPanningRef.current = false;
-          fabricCanvasRef.current.defaultCursor = 'grab';
-          opt.e.preventDefault();
+          isPanningRef.current = false; // Stop panning
+          fabricCanvasRef.current.defaultCursor = 'grab'; // Reset cursor to grab
+          opt.e.preventDefault(); // Prevent default behavior
         }
         else if (tool === 'brush' || (tool === 'eraser' && eMode === 'whiteEraser')) {
           if (broadcastDrawingRef.current) {
@@ -1239,7 +1296,7 @@ const Canvas = forwardRef(
     
     
 
-// Add these refs:
+// For tool hand
 const currentShapeRef = useRef(null); // Reference for the currently active shape
 const currentShapeDataRef = useRef(null); // Reference for the shape's data
 
@@ -2171,23 +2228,24 @@ return (
       </div>
     )}
 
-    {/* Canvas Wrapper */}
-    <div className={styles.canvasWrapper}>
-      <canvas
-        ref={(node) => {
-          setCanvasNode(node);
-          if (node) {
-            console.log('Canvas element rendered:', node);
-          } else {
-            console.warn('Canvas element not found');
-          }
-        }}
-        id="main-canvas"
-        width={window.innerWidth * 4}
-        height={window.innerHeight * 4}
-        className={styles.canvas}
-      />
-    </div>
+{/* Scrollable Canvas Wrapper */}
+<div className={styles.canvasWrapper}>
+  <canvas
+    ref={(node) => {
+      setCanvasNode(node);
+      if (node) {
+        console.log('Canvas element rendered:', node);
+      } else {
+        console.warn('Canvas element not found');
+      }
+    }}
+    id="main-canvas"
+    width={window.innerWidth * 2} // Ensures the canvas is larger than the viewport
+    height={window.innerHeight * 2}
+    className={styles.canvas} // Apply the custom styles
+  />
+</div>
+
 
     {/* Bottom Left - Color Picker and Size Sliders */}
     <div className={styles.controlsWrapper}>

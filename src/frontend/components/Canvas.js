@@ -678,7 +678,7 @@ useEffect(() => {
  
       let startGroupTransform = { left: 0, top: 0, scaleX: 1, scaleY: 1 };
 
-      //preapares object for selections
+      // Prepare object for selection and broadcast changes
       const processAndBroadcastObject = (obj, broadcastFn) => {
         if (!obj.strokeId) {
           console.warn("Object has no strokeId:", obj);
@@ -687,12 +687,11 @@ useEffect(() => {
       
         const modifiedData = {
           strokeId: obj.strokeId,
-          stroke: obj.stroke || null,
-          strokeWidth: obj.strokeWidth || null,
           left: obj.left || 0, // Use the object's local position
           top: obj.top || 0,
           scaleX: obj.scaleX || 1,
           scaleY: obj.scaleY || 1,
+          angle: obj.angle || 0, // Include rotation angle
           timestamp: Date.now(),
         };
       
@@ -713,11 +712,24 @@ useEffect(() => {
           modifiedData.fontSize = obj.fontSize || null;
           modifiedData.fill = obj.fill || null;
           modifiedData.type = "text";
-        } else if (obj.type === "image"){
+        } else if (obj.type === "image") {
           modifiedData.imageData = obj.imageData;
-          modifiedData.type = "image";  
-        }
-        else {
+          modifiedData.type = "image";
+        } else if (obj.type === "rect") {
+          modifiedData.type = "rectangle";
+          modifiedData.width = obj.width * obj.scaleX; // Actual width
+          modifiedData.height = obj.height * obj.scaleY; // Actual height
+          modifiedData.fill = obj.fill || 'transparent';
+        } else if (obj.type === "circle") {
+          modifiedData.type = "circle";
+          modifiedData.radius = obj.radius * obj.scaleX; // Use scaleX for consistent resizing
+          modifiedData.fill = obj.fill || 'transparent';
+        } else if (obj.type === "triangle") {
+          modifiedData.type = "triangle";
+          modifiedData.width = obj.width * obj.scaleX;
+          modifiedData.height = obj.height * obj.scaleY;
+          modifiedData.fill = obj.fill || 'transparent';
+        } else {
           console.warn("Unsupported object type for processing:", obj.type);
           return;
         }
@@ -727,7 +739,7 @@ useEffect(() => {
         broadcastFn(modifiedData);
       };
       
-      //changes selected objects
+      // Handle changes to selected objects
       const handleObjectModified = (event) => {
         const obj = event.target;
         if (!obj) return;
@@ -736,13 +748,14 @@ useEffect(() => {
       
         const broadcastFn = broadcastDrawingRef.current || (() => {});
       
-        // Process a single object
+        // Process and broadcast the modified object
         processAndBroadcastObject(obj, broadcastFn);
       
         // Render the canvas to apply changes
         fabricCanvasRef.current.renderAll();
       };
-    
+      
+      // Capture initial transform state before modification
       fabricCanvasRef.current.on('object:modified:before', (event) => {
         const obj = event.target;
         if (!obj) return;
@@ -751,14 +764,16 @@ useEffect(() => {
           left: obj.left || 0,
           top: obj.top || 0,
           scaleX: obj.scaleX || 1,
-          scaleY: obj.scaleY ||  1,
+          scaleY: obj.scaleY || 1,
         };
       
         console.log('Captured initial group transform:', startGroupTransform);
       });
       
+      // Handle object modification events
       fabricCanvasRef.current.on('object:modified', handleObjectModified);
-
+      
+      // Bring selected objects to the front
       fabricCanvasRef.current.on('selection:created', (e) => {
         console.log("In drag");
         if (e.target && e.target.bringToFront) {
@@ -819,7 +834,10 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      hasControls: true,
     });
+    console.log(shape.type); // Should output: "rect"
+
     shapeData = {
       type: 'rectangle',
       strokeId: `${Date.now()}_${uuidv4()}`,
@@ -839,6 +857,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      hasControls: true,
     });
     shapeData = {
       type: 'circle',
@@ -859,6 +878,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      hasControls: true,
     });
     shapeData = {
       type: 'triangle',

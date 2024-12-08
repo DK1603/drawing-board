@@ -186,15 +186,23 @@
   align-items: flex-start; /* Align to top for better scrolling */
   margin-top: 60px; /* Space for fixed toolbar */
   padding: 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background-color: #ffffff;
+  position: relative; /* Ensures positioning context */
+
+  width: 100%; /* Set wrapper width */
+  height: 100%; /* Set wrapper height */
+  background-color: #f0f0f0; /* Optional: Background for non-drawable area */
+
+
 }
 
 .canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   margin: 0 auto;
-  border: 1px solid #ccc;
+  border: 2px dashed #007bff; /* Dashed blue outline for the drawable area */
+  box-sizing: border-box; /* Ensures the border fits within the canvas dimensions */
 }
 
 /* Controls Wrapper */

@@ -22,7 +22,7 @@ import { BiSolidEraser } from "react-icons/bi";
 import { IoCloseSharp, IoText, IoSquare, IoTriangle, IoEllipse, IoShapesOutline } from "react-icons/io5";
 import { FaHandPaper } from 'react-icons/fa';
 import { IoMdUndo, IoMdRedo } from "react-icons/io";
-import { FaFont } from 'react-icons/fa';
+
 
 
 
@@ -1273,6 +1273,19 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
     const [textColor, setTextColor] = useState('#000000');
 
 
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // State to manage drawing status
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  // Toggle the menu visibility
+  const toggleMenu = () => {
+    setIsMenuOpen((prev) => !prev);
+  };
+  const handleCanvasClick = () => {
+    setIsDrawing((prev) => !prev); // Toggle drawing state
+  };
+
     // Share Link State
     const [isShareLinkModalVisible, setIsShareLinkModalVisible] = useState(false);
 
@@ -1723,6 +1736,7 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
     if (isLoading) return <div>Loading canvas...</div>;
 
 
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 return (
@@ -2170,8 +2184,52 @@ return (
           <IoCloseSharp />
         </button>
       </div>
-    )}
+   )}
     
+    
+  {/* Hamburger Menu */}
+  <div className={styles.hamburgerCont}>
+  <button className={styles.burger} onClick={toggleMenu} aria-label="Toggle Menu">
+    ☰
+  </button>
+</div>
+
+
+  {/* Sliding Menu */}
+  {isMenuOpen && (
+  <div className={styles.menuCont}>
+    <div className={styles.menu}>
+
+      {/* Add the Toolbar Icons inside the Menu */}
+      <ul>
+        <li>
+          <button onClick={toggleUploadMenu} className={styles.menuBtn}>
+            <span className={styles.icon}>📄</span> Upload PDF
+          </button>
+        </li>
+        <li>
+          <button onClick={toggleChatbot} className={styles.menuBtn}>
+            <span className={styles.icon}>💬</span> Chat
+          </button>
+        </li>
+        <li>
+          <button onClick={toggleShareLinkModal} className={styles.menuBtn}>
+            <span className={styles.icon}>🔗</span> Share
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+)}
+{isMenuOpen && <div className={styles.overlay} onClick={toggleMenu}></div>}
+
+<div className={styles.canvasCont} onClick={handleCanvasClick}>
+  <p>
+    {isDrawing ? "Stop Drawing" : "Start Drawing"}
+  </p>
+</div>
+
+
 
     {/* Canvas Wrapper */}
     <div className={styles.canvasWrapper}>

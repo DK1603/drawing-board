@@ -14,7 +14,7 @@ import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirestore, collection, doc, setDoc, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, getDocs, getDoc, onSnapshot } from 'firebase/firestore';
 import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMouse, FaShareAlt, FaEllipsisH, FaCamera } from "react-icons/fa";
 import { FaTrashCan } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
@@ -1312,7 +1312,9 @@ const Canvas = forwardRef(
     const { boardId } = useParams();
     //Shape Dropdown
     const [isShapeOptionsVisible, setIsShapeOptionsVisible] = useState(false); // Dropdown visibility
- 
+    
+    const auth = getAuth(); // ADD: Needed for user roles
+    const db = getFirestore(); // ADD: Needed for Firestore queries
 
     
     
@@ -1376,6 +1378,178 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
     // Do-Undo
     const [undoStack, setUndoStack] = useState([]); // Stack to track undoable actions
     const [redoStack, setRedoStack] = useState([]); // Stack to track redoable actions
+
+    // user list - admin, member
+    const [members, setMembers] = useState([]);
+    const [adminRequests, setAdminRequests] = useState([]);
+  
+//////////////////////////////////////////// Access control features. do not modify! /////////////////////////////
+
+
+        // ADD START: Fetch members and admin requests in real-time
+        useEffect(() => {
+          if (!boardId) return;
+          const boardRef = doc(db, 'boards', boardId);
+    
+          // Listen to board document for members
+          const unsubscribeBoard = onSnapshot(boardRef, async (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              const memberRoles = data.members || {};
+              const memberPromises = Object.keys(memberRoles).map(async (uid) => {
+                const userDoc = await getDoc(doc(db, 'users', uid));
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                return {
+                  userId: uid,
+                  displayName: userData.displayName || 'Anonymous',
+                  role: memberRoles[uid],
+                  email: userData.email || '',
+                };
+              });
+              const membersArray = await Promise.all(memberPromises);
+              setMembers(membersArray);
+            }
+          });
+    
+          // Listen to adminRequests subcollection
+          const adminRequestsRef = collection(db, 'boards', boardId, 'adminRequests');
+          const unsubscribeAdminRequests = onSnapshot(adminRequestsRef, (snapshot) => {
+            const requests = [];
+            snapshot.forEach((doc) => {
+              const reqData = doc.data();
+              if (reqData.status === 'pending') {
+                requests.push({
+                  userId: reqData.userId,
+                  status: reqData.status,
+                  requestedAt: reqData.requestedAt ? reqData.requestedAt.toDate() : null,
+                });
+              }
+            });
+            setAdminRequests(requests);
+          });
+    
+          return () => {
+            unsubscribeBoard();
+            unsubscribeAdminRequests();
+          };
+        }, [boardId, db]);
+        // ADD END
+
+
+
+        const currentUser = auth.currentUser;
+        // ADD START: Determine user role
+        const userRole = members.find((m) => m.userId === currentUser?.uid)?.role || 'spectator';
+        // ADD END
+
+        // If user is a spectator, force the selected tool to 'hand'.
+        useEffect(() => {
+          if (userRole === 'spectator') {
+            setSelectedTool('hand');
+          }
+          }, [userRole]);
+    
+        // ADD START: Admin-related functions
+        const handleRequestAdminAccess = async () => {
+          if (userRole !== 'spectator') return;
+          try {
+            const response = await fetch('/api/requestAdmin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: currentUser.uid, boardId }),
+            });
+            if (response.ok) {
+              alert('Admin request submitted successfully.');
+            } else {
+              const errorMsg = await response.text();
+              alert(`Error requesting admin: ${errorMsg}`);
+            }
+          } catch (error) {
+            console.error('Error requesting admin:', error);
+            alert('Failed to request admin. Please try again.');
+          }
+        };
+    
+        const handleApproveAdmin = async (targetUserId) => {
+          try {
+            const response = await fetch('/api/approveAdmin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
+            });
+            if (response.ok) {
+              alert('Admin request approved successfully');
+            } else {
+              const errorMsg = await response.text();
+              alert(`Error approving admin request: ${errorMsg}`);
+            }
+          } catch (error) {
+            console.error('Error approving admin request:', error);
+            alert('Failed to approve admin request. Please try again.');
+          }
+        };
+    
+        const handleDenyAdmin = async (targetUserId) => {
+          try {
+            const response = await fetch('/api/denyAdmin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
+            });
+            if (response.ok) {
+              alert('Admin request denied successfully');
+            } else {
+              const errorMsg = await response.text();
+              alert(`Error denying admin request: ${errorMsg}`);
+            }
+          } catch (error) {
+            console.error('Error denying admin request:', error);
+            alert('Failed to deny admin request. Please try again.');
+          }
+        };
+    
+        const handleDemoteAdmin = async (targetUserId) => {
+          try {
+            const response = await fetch('/api/demoteAdmin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
+            });
+            if (response.ok) {
+              alert('Admin demoted to spectator successfully');
+            } else {
+              const errorMsg = await response.text();
+              alert(`Error demoting admin: ${errorMsg}`);
+            }
+          } catch (error) {
+            console.error('Error demoting admin:', error);
+            alert('Failed to demote admin. Please try again.');
+          }
+        };
+        // ADD END
+
+        const handleCopyBoard = async () => {
+          try {
+            const response = await fetch('/api/copyBoard', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sourceBoardId: boardId }),
+            });
+            if (response.ok) {
+              const { newBoardId } = await response.json();
+              alert('Desk copied successfully!');
+              navigate(`/boards/${newBoardId}`);
+            } else {
+              const errorMsg = await response.text();
+              alert(`Error copying desk: ${errorMsg}`);
+            }
+          } catch (error) {
+            console.error('Error copying desk:', error);
+            alert('Failed to copy desk. Please try again.');
+          }
+        };
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
     const handleUndo = () => {
       if (undoStack.length === 0) return;
@@ -1699,7 +1873,7 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
       setRedoStack     
     );
 
-//capture init
+    //capture init
     useCaptureAndProcessCanvasArea(fabricCanvasRef, captureMode);
 
     
@@ -1743,7 +1917,8 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
       boardId,
       handleReceiveDrawing,
       handleClearCanvas,
-      handleLoadDrawings
+      handleLoadDrawings,
+      onDeleteStroke
     );
 
     // Set the broadcastDrawing function in the canvas hook once it's available
@@ -1814,7 +1989,7 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
 
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////// U/I rendering part  //////////////////////////////////////////////////////////
 
 return (
   <div className={styles.boardContainer}>
@@ -1828,6 +2003,10 @@ return (
             selectedTool === 'brush' && brushOpacity === 1 ? styles.activeTool : ''
           }`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             setSelectedTool('brush');
             setEraserMode('none');
             setBrushOpacity(1);
@@ -1835,6 +2014,7 @@ return (
           }}
           aria-pressed={selectedTool === 'brush' && brushOpacity === 1}
           aria-label="Draw Tool"
+          disabled={userRole === 'spectator'} // Disable for spectators
         >
           <FaPencilAlt className={styles.icon} />
         </button>
@@ -1845,30 +2025,36 @@ return (
             selectedTool === 'brush' && brushOpacity === 0.3 ? styles.activeTool : ''
           }`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             setSelectedTool('brush');
             setBrushOpacity(0.3);
             console.log('Highlighter selected, opacity set to 0.3');
           }}
           aria-pressed={selectedTool === 'brush' && brushOpacity === 0.3}
           aria-label="Highlighter Tool"
+          disabled={userRole === 'spectator'}
         >
           <FaHighlighter className={styles.icon} />
         </button>
 
-{/* Hand Tool */}
-<button
-  className={`${styles.toolButton} ${styles.hand}${
-    selectedTool === 'hand' ? styles.activeTool : ''
-  }`}
-  onClick={() => {
-    setSelectedTool('hand');
-    console.log('Hand tool selected');
-  }}
-  aria-pressed={selectedTool === 'hand'}
-  aria-label="Hand Tool"
->
-  <FaHandPaper className={styles.icon} />
-</button>
+        {/* Hand Tool (Spectators can use this) */}
+        <button
+          className={`${styles.toolButton} ${
+            selectedTool === 'hand' ? styles.activeTool : ''
+          }`}
+          onClick={() => {
+            // Spectators are allowed to use the hand tool
+            setSelectedTool('hand');
+            console.log('Hand tool selected');
+          }}
+          aria-pressed={selectedTool === 'hand'}
+          aria-label="Hand Tool"
+        >
+          <FaHandPaper className={styles.icon} /> Hand
+        </button>
 
         {/* Eraser Tool */}
         <button
@@ -1876,12 +2062,17 @@ return (
             selectedTool === 'eraser' ? styles.activeTool : ''
           }`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             setSelectedTool('eraser');
             setIsEraserOptionsVisible(!isEraserOptionsVisible);
             console.log('Eraser tool selected');
           }}
           aria-pressed={selectedTool === 'eraser'}
           aria-label="Eraser Tool"
+          disabled={userRole === 'spectator'}
         >
           <FaEraser className={styles.icon} /> 
         </button>
@@ -1892,22 +2083,32 @@ return (
             <button
               className={styles.optionsMenuItem}
               onClick={() => {
+                if (userRole === 'spectator') {
+                  alert('You are a spectator. Request admin access to draw.');
+                  return;
+                }
                 setEraserMode('whiteEraser');
                 setIsEraserOptionsVisible(false);
                 console.log('White Eraser mode selected');
               }}
               aria-label="White Eraser"
+              disabled={userRole === 'spectator'}
             >
               <SiEraser className={styles.icon} /> White
             </button>
             <button
               className={styles.optionsMenuItem}
               onClick={() => {
+                if (userRole === 'spectator') {
+                  alert('You are a spectator. Request admin access to draw.');
+                  return;
+                }
                 setEraserMode('strokeEraser');
                 setIsEraserOptionsVisible(false);
                 console.log('Stroke Eraser mode selected');
               }}
               aria-label="Stroke Eraser"
+              disabled={userRole === 'spectator'}
             >
               <BiSolidEraser className={styles.icon} /> Stroke
             </button>
@@ -1918,12 +2119,17 @@ return (
         <button
           className={`${styles.toolButton} ${styles.text} ${selectedTool === 'text' ? styles.activeTool : ''}`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             setSelectedTool('text');
             setIsTextOptionsVisible(!isTextOptionsVisible);
             console.log('Text tool selected');
           }}
           aria-pressed={selectedTool === 'text'}
           aria-label="Text Tool"
+          disabled={userRole === 'spectator'}
         >
           <IoText className={styles.icon} />
         </button>
@@ -1949,67 +2155,92 @@ return (
             </div>
           </div>
         )}
-{/* Shape Tool Button */}
-<button
-  className={`${styles.toolButton} ${
-    ['rectangle', 'triangle', 'circle'].includes(selectedTool) ? styles.activeTool : ''
-  }`}
-  onClick={() => setIsShapeOptionsVisible((prev) => !prev)}
-  aria-pressed={['rectangle', 'triangle', 'circle'].includes(selectedTool)}
-  aria-label="Select Shape Tool"
->
-  {selectedTool === 'rectangle' && <IoRectangle className={styles.icon} />}
-  {selectedTool === 'triangle' && <IoTriangle className={styles.icon} />}
-  {selectedTool === 'circle' && <IoCircle className={styles.icon} />}
-  {!['rectangle', 'triangle', 'circle'].includes(selectedTool) && <IoShapes className={styles.icon} />}
-  Shape
-</button>
 
-{/* Shape Options Dropdown */}
-{isShapeOptionsVisible && (
-  <div className={styles.shapeOptions}>
-    <button
-      onClick={() => {
-        setSelectedTool('rectangle');
-        setIsShapeOptionsVisible(false); // Close dropdown
-      }}
-      aria-label="Rectangle Tool"
-    >
-      <IoRectangle className={styles.icon} />
-    </button>
-    <button
-      onClick={() => {
-        setSelectedTool('circle');
-        setIsShapeOptionsVisible(false); // Close dropdown
-      }}
-      aria-label="Circle Tool"
-    >
-      <IoCircle className={styles.icon} />
-    </button>
-    <button
-      onClick={() => {
-        setSelectedTool('triangle');
-        setIsShapeOptionsVisible(false); // Close dropdown
-      }}
-      aria-label="Triangle Tool"
-    >
-      <IoTriangle className={styles.icon} />
-    </button>
-  </div>
-)}
+        {/* Shape Tool Button */}
+        <button
+          className={`${styles.toolButton} ${
+            ['rectangle', 'triangle', 'circle'].includes(selectedTool) ? styles.activeTool : ''
+          }`}
+          onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
+            setIsShapeOptionsVisible((prev) => !prev);
+          }}
+          aria-pressed={['rectangle', 'triangle', 'circle'].includes(selectedTool)}
+          aria-label="Select Shape Tool"
+          disabled={userRole === 'spectator'}
+        >
+          {selectedTool === 'rectangle' && <IoRectangle className={styles.icon} />}
+          {selectedTool === 'triangle' && <IoTriangle className={styles.icon} />}
+          {selectedTool === 'circle' && <IoCircle className={styles.icon} />}
+          {!['rectangle', 'triangle', 'circle'].includes(selectedTool) && <IoShapes className={styles.icon} />}
+          Shape
+        </button>
 
-
-
+        {/* Shape Options Dropdown */}
+        {isShapeOptionsVisible && (
+          <div className={styles.shapeOptions}>
+            <button
+              onClick={() => {
+                if (userRole === 'spectator') {
+                  alert('You are a spectator. Request admin access to draw.');
+                  return;
+                }
+                setSelectedTool('rectangle');
+                setIsShapeOptionsVisible(false); // Close dropdown
+              }}
+              aria-label="Rectangle Tool"
+              disabled={userRole === 'spectator'}
+            >
+              <IoRectangle className={styles.icon} />
+            </button>
+            <button
+              onClick={() => {
+                if (userRole === 'spectator') {
+                  alert('You are a spectator. Request admin access to draw.');
+                  return;
+                }
+                setSelectedTool('circle');
+                setIsShapeOptionsVisible(false); // Close dropdown
+              }}
+              aria-label="Circle Tool"
+              disabled={userRole === 'spectator'}
+            >
+              <IoCircle className={styles.icon} />
+            </button>
+            <button
+              onClick={() => {
+                if (userRole === 'spectator') {
+                  alert('You are a spectator. Request admin access to draw.');
+                  return;
+                }
+                setSelectedTool('triangle');
+                setIsShapeOptionsVisible(false); // Close dropdown
+              }}
+              aria-label="Triangle Tool"
+              disabled={userRole === 'spectator'}
+            >
+              <IoTriangle className={styles.icon} />
+            </button>
+          </div>
+        )}
 
         {/* Select Tool */}
         <button
           className={`${styles.toolButton} ${styles.select} ${selectedTool === 'select' ? styles.activeTool : ''}`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             setSelectedTool('select');
             console.log('Select tool selected');
           }}
           aria-pressed={selectedTool === 'select'}
           aria-label="Select Tool"
+          disabled={userRole === 'spectator'}
         >
           <FaMouse className={styles.icon} /> 
         </button>
@@ -2052,7 +2283,7 @@ return (
         <button
           className={`${styles.toolButton} ${styles.undo}`}
           onClick={handleUndo}
-          disabled={undoStack.length === 0}
+          disabled={undoStack.length === 0 || userRole === 'spectator'} // Spectators can't undo
           title="Undo"
           aria-label="Undo"
         >
@@ -2064,7 +2295,7 @@ return (
         <button
           className={`${styles.toolButton} ${styles.redo}`}
           onClick={handleRedo}
-          disabled={redoStack.length === 0}
+          disabled={redoStack.length === 0 || userRole === 'spectator'} // Spectators can't redo
           title="Redo"
           aria-label="Redo"
         >
@@ -2079,8 +2310,15 @@ return (
         
           <button
             className={styles.toolButton}
-            onClick={toggleUploadMenu}
+            onClick={() => {
+              if (userRole === 'spectator') {
+                alert('You are a spectator. Request admin access to draw.');
+                return;
+              }
+              toggleUploadMenu();
+            }}
             aria-label="Upload File"
+            disabled={userRole === 'spectator'}
           >
             <FaCloudUploadAlt className={styles.icon} />
           </button>
@@ -2089,20 +2327,30 @@ return (
               <button
                 className={styles.menuItem}
                 onClick={() => {
+                  if (userRole === 'spectator') {
+                    alert('You are a spectator. Request admin access to draw.');
+                    return;
+                  }
                   handleUploadButtonClick();
                   setIsUploadMenuVisible(false);
                 }}
                 aria-label="Upload New File"
+                disabled={userRole === 'spectator'}
               >
                 Upload New File
               </button>
               <button
                 className={styles.menuItem}
                 onClick={() => {
+                  if (userRole === 'spectator') {
+                    alert('You are a spectator. Request admin access to draw.');
+                    return;
+                  }
                   handleBrowseFiles();
                   setIsUploadMenuVisible(false);
                 }}
                 aria-label="Browse Existing Files"
+                disabled={userRole === 'spectator'}
               >
                 Browse Existing Files
               </button>
@@ -2113,22 +2361,32 @@ return (
         {/* Share Link */}
         <button
           className={styles.toolButton}
-          onClick={toggleShareLinkModal}
+          onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
+            toggleShareLinkModal();
+          }}
           aria-label="Share Link"
+          disabled={userRole === 'spectator'}
         >
           <FaShareAlt className={styles.icon} /> 
         </button>
-        
-       
 
         {/* Clear Canvas */}
         <button
           className={`${styles.toolButton} ${styles.clear}`}
           onClick={() => {
+            if (userRole === 'spectator') {
+              alert('You are a spectator. Request admin access to draw.');
+              return;
+            }
             clearSocketCanvas();
             console.log('Clear Canvas button clicked');
           }}
           aria-label="Clear Canvas"
+          disabled={userRole === 'spectator'}
         >
           <FaTrashCan className={styles.icon} /> 
         </button>
@@ -2381,31 +2639,86 @@ return (
       </div>
     </div>
 
-    {/* Bottom Right - User List */}
-    <div className={styles.userListContainer}>
-      {!isListVisible && (
-        <button
-          className={styles.toggleButton}
-          onClick={toggleListVisibility}
-          aria-label="Show User List"
-        >
-          User List
-        </button>
-      )}
-      {isListVisible && (
-        <div
-          className={styles.userList}
-          onBlur={handleBlur}
-          tabIndex={0}
-          aria-label="User List"
-        >
-          <div className={styles.userItem}>User 1</div>
-          <div className={styles.userItem}>User 2</div>
-        </div>
-      )}
+{/* Bottom Right - User List */}
+<div className={styles.userListContainer}>
+        {!isListVisible && (
+          <button
+            className={styles.toggleButton}
+            onClick={toggleListVisibility}
+            aria-label="Show User List"
+          >
+            User List
+          </button>
+        )}
+        {isListVisible && (
+          <div
+            className={styles.userList}
+            onBlur={handleBlur}
+            tabIndex={0}
+            aria-label="User List"
+          >
+            <h4>Members</h4>
+            <ul className={styles.memberList}>
+              {members.map((member) => (
+                <li key={member.userId} className={styles.memberItem}>
+                  {member.displayName} ({member.role})
+                  {/* If owner and this member is admin (not the current user), show demote button */}
+                  {userRole === 'owner' && member.role === 'admin' && member.userId !== currentUser.uid && (
+                    <button onClick={() => handleDemoteAdmin(member.userId)} className={styles.demoteButton}>
+                      Demote to Spectator
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {/* If current user is spectator, show request admin button */}
+            {userRole === 'spectator' && (
+              <button onClick={handleRequestAdminAccess} className={styles.requestAdminButton}>
+                Request Admin Access
+              </button>
+
+              
+            )}
+
+            {userRole === 'spectator' && (
+  <button onClick={handleCopyBoard} className={styles.copyBoardButton}>
+    Copy Desk
+  </button>
+)}
+
+
+            {/* If current user is owner, show admin requests */}
+            {userRole === 'owner' && (
+              <div className={styles.adminRequestsSection}>
+                <h5>Admin Requests:</h5>
+                {adminRequests.length === 0 ? (
+                  <p>No pending admin requests.</p>
+                ) : (
+                  <ul className={styles.adminRequestList}>
+                    {adminRequests.map((request) => (
+                      <li key={request.userId} className={styles.adminRequestItem}>
+                        {/* Ideally, fetch user’s displayName similarly as members */}
+                        {request.userId} has requested admin access.
+                        <button onClick={() => handleApproveAdmin(request.userId)} className={styles.approveButton}>
+                          Approve
+                        </button>
+                        <button onClick={() => handleDenyAdmin(request.userId)} className={styles.denyButton}>
+                          Deny
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      
     </div>
-  </div>
-);
+  );
 });
 
 export default Canvas;

@@ -407,18 +407,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 8px; /* Space between label and slider */
   width: 100%;
-  background-color: #f9f9f9;
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #000;
 }
 
 .sliderLabel {
   font-size: 14px;
-  font-weight: 500;
-  color: #444;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  text-align: center;
 }
 
 /* Slider Input */
@@ -479,6 +478,19 @@
   outline: none;
   background: #003d99;
 }
+.sliderLabelBrush {
+  margin-bottom: 8px; /* Space between label and slider */
+  font-size: 14px;
+  font-weight: bold;
+  top: 95px;
+}
+.sliderLabelEraser{
+  margin-bottom: 8px; /* Space between label and slider */
+  font-size: 14px;
+  font-weight: bold;
+  top: 145px;
+}
+
 
 
 /* PDF Preview */

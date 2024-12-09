@@ -2571,41 +2571,44 @@ return (
       </div>
 
       {/* Brush Size Slider */}
-      <div className={styles.sliderGroupBrush}>
-        <input
-          type="range"
-          min="1"
-          max="50"
-          value={brushSize}
-          onChange={(e) => {
-            const newSize = parseInt(e.target.value, 10);
-            console.log('Brush size changed:', newSize);
-            setBrushSize(newSize);
-          }}
-          className={styles.slider}
-          aria-label="Brush Size Slider"
-        />
-        <label className={styles.sliderLabel}>Brush Size / Eraser Size</label>
-      </div>
+                <div className={styles.sliderGroupBrush}>
+            <label className={styles.sliderLabelBrush} htmlFor="brushSizeSlider">Brush Size</label>
+            <input
+              id="brushSizeSlider"
+              type="range"
+              min="1"
+              max="50"
+              value={brushSize}
+              onChange={(e) => {
+                const newSize = parseInt(e.target.value, 10);
+                console.log('Brush size changed:', newSize);
+                setBrushSize(newSize);
+              }}
+              className={styles.slider}
+              aria-label="Brush Size Slider"
+            />
+          </div>
 
-      {/* Eraser Size Slider */}
-      <div className={styles.sliderGroupEraser}>
-        <input
-          type="range"
-          min="1"
-          max="50"
-          value={eraserSize}
-          onChange={(e) => {
-            const newSize = parseInt(e.target.value, 10);
-            console.log('Eraser size changed:', newSize);
-            setEraserSize(newSize);
-          }}
-          className={styles.slider}
-          aria-label="Eraser Size Slider"
-        />
-        <label className={styles.sliderLabel}></label>
-      </div>
-    </div>
+          {/* Eraser Size Slider */}
+          <div className={styles.sliderGroupEraser}>
+            <label className={styles.sliderLabelEraser} htmlFor="eraserSizeSlider">Eraser Size</label>
+            <input
+              id="eraserSizeSlider"
+              type="range"
+              min="1"
+              max="50"
+              value={eraserSize}
+              onChange={(e) => {
+                const newSize = parseInt(e.target.value, 10);
+                console.log('Eraser size changed:', newSize);
+                setEraserSize(newSize);
+              }}
+              className={styles.slider}
+              aria-label="Eraser Size Slider"
+            />
+          </div>
+          </div>
+
 
 {/* Bottom Right - User List */}
 <div className={styles.userListContainer}>

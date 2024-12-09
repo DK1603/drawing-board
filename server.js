@@ -11,6 +11,24 @@ const serviceAccount = require('./src/backend/config/firebase-adminsdk-drawing.j
 const app = express();
 const server = http.createServer(app);
 
+// For copy desk function only!
+async function authenticateHTTP(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).send('Missing Authorization header');
+
+  const token = authHeader.split(' ')[1]; // Expect "Bearer <token>"
+  if (!token) return res.status(401).send('No token provided');
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken; // Now req.user is set and you can use req.user.uid
+    next();
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(401).send('Invalid token');
+  }
+}
+
 // Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -587,7 +605,7 @@ app.post('/api/leaveBoard', async (req, res) => {
 });
 
 
-app.post('/api/copyBoard', async (req, res) => {
+app.post('/api/copyBoard', authenticateHTTP, async (req, res) => {
   const { sourceBoardId } = req.body;
   const userId = req.user.uid; // From Auth middleware
   

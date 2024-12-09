@@ -231,11 +231,53 @@ const restrictPanning = (canvas, canvasBounds) => {
 
       // Apply corrections only if the canvas is out of bounds
       if (left !== adjustedLeft || top !== adjustedTop) {
-        transform[4] = adjustedLeft;
-        transform[5] = adjustedTop;
-        canvas.requestRenderAll();
+        // Animate snap-back to restricted bounds
+        fabric.util.animate({
+          startValue: left,
+          endValue: adjustedLeft,
+          duration: 300, // Smooth animation over 300ms
+          onChange: (value) => {
+            transform[4] = value;
+            canvas.requestRenderAll();
+          },
+        });
+
+        fabric.util.animate({
+          startValue: top,
+          endValue: adjustedTop,
+          duration: 300, // Smooth animation over 300ms
+          onChange: (value) => {
+            transform[5] = value;
+            canvas.requestRenderAll();
+          },
+        });
       }
     }, 10); // Delay to ensure hand tool actions are complete
+  });
+
+  canvas.on('mouse:move', (opt) => {
+    const e = opt.e;
+    const transform = canvas.viewportTransform;
+    if (!transform) return;
+
+    const left = transform[4];
+    const top = transform[5];
+
+    const elasticBuffer = 50; // Allow 50px of elastic movement
+
+    // Check if the canvas is out of bounds within the elastic buffer
+    const isOutOfBounds =
+      left < canvasBounds.right - canvas.getWidth() - elasticBuffer ||
+      left > canvasBounds.left + elasticBuffer ||
+      top < canvasBounds.bottom - canvas.getHeight() - elasticBuffer ||
+      top > canvasBounds.top + elasticBuffer;
+
+    // Apply visual feedback for being out of bounds
+    if (isOutOfBounds) {
+      canvas.defaultCursor = 'not-allowed'; // Change cursor to indicate limit
+    } else {
+      canvas.defaultCursor = 'grab'; // Reset cursor to grab
+    }
   });
 };
 
@@ -651,7 +693,7 @@ useEffect(() => {
       console.log('Fabric.js canvas initialized:', fabricCanvasRef.current);
 
       // Apply initial brush settings
-      updateBrushSettings('black', 2, false);
+      //updateBrushSettings('black', 2, false);
 
       // Event handler for collecting points
       let collectedPoints = [];
@@ -1336,7 +1378,7 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
     const [brushSize, setBrushSize] = useState(initialBrushSize);
     const [eraserSize, setEraserSize] = useState(10); // Default eraser size
     // State variables for tool selection
-    const [selectedTool, setSelectedTool] = useState('brush'); // 'brush', 'eraser'
+    const [selectedTool, setSelectedTool] = useState(''); // null in case of bugs
     const [isEraserOptionsVisible, setIsEraserOptionsVisible] = useState(false);
     const [eraserMode, setEraserMode] = useState('none'); // 'none', 'whiteEraser', 'strokeEraser'
     const [brushOpacity, setBrushOpacity] = useState(1); 
@@ -1530,10 +1572,14 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
 
         const handleCopyBoard = async () => {
           try {
+            const token = await auth.currentUser.getIdToken();
             const response = await fetch('/api/copyBoard', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sourceBoardId: boardId }),
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // Include the token
+            },
+             body: JSON.stringify({ sourceBoardId: boardId }),
             });
             if (response.ok) {
               const { newBoardId } = await response.json();

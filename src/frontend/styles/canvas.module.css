@@ -37,10 +37,11 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   position: fixed;
   top: 20px;
-  left: 250px;
-  right: 250px;
+  left: 300px;
+  right: 300px;
   z-index: 1000;
-  max-width: calc(100% - 40px);
+  max-width: calc(100% - 600px); /* Ensures consistent placement */
+  transition: all 0.3s ease-in-out; /* Smooth hover effect */
 }
 
 .toolbar:hover {
@@ -53,16 +54,24 @@
 .toolbarGroupRight {
   display: flex;
   align-items: center;
-  gap: 0; /* Consistent spacing between toolbar items */
+  gap: 10px; /* Consistent spacing between toolbar items */
 }
 
 .toolbarGroupCenter {
   justify-content: center;
+  flex-grow: 1; /* Center group takes up available space */
 }
 
 .toolbarGroupRight {
-  justify-content: center;
+  justify-content: flex-end; /* Align items to the right */
+  flex-grow: 0; /* Prevent growing */
 }
+
+.toolbarGroup {
+  justify-content: flex-start; /* Align items to the left */
+  flex-grow: 0; /* Prevent growing */
+}
+
 
 /* Tool Buttons */
 .toolButton {
@@ -75,6 +84,8 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
+  min-width: 50px; /* Prevent resizing of buttons */
+  justify-content: center; /* Align text/icons inside buttons */
 }
 
 
@@ -86,7 +97,6 @@
   z-index: 1000;
 }
 
-/* Hamburger Button */
 .burger {
   font-size: 24px;
   background: none;
@@ -106,13 +116,13 @@
 .menuCont {
   position: fixed;
   top: 20px;
-  left: 0;
-  height: 300px;
+  left: 20px;
+  height: 700px;
   width: 250px;
   background-color: white;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
   border-radius: 0 10px 10px 0;
-  transition: transform 0.3s ease-in-out;
+  transition: transform 1s ease;
   z-index: 999;
   overflow-y: auto;
 }
@@ -149,20 +159,24 @@
 .menuBtn {
   display: flex;
   align-items: center;
-  background: none;
-  border: none;
-  color: #333;
-  font-size: 18px;
+  width: 100%; 
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: white;
+  border: 1px solid transparent; /* Default no border */
+  border-radius: 6px; /* Rounded corners */
   cursor: pointer;
-  outline: none;
-  width: 100%;
-  
-  padding: 15px 0;
-  text-align: left;
+  transition: border-color 0.3s, background-color 0.3s;
 }
 
 .menuBtn:hover {
-  color: #007bff;
+  border-color: #86888a; /* Highlight border color on hover */
+  background-color: #f7f9fc; /* Optional background color for better effect */
+}
+
+.menuBtn:focus {
+  outline: none;
+  border-color: #0056b3; /* Focus state for accessibility */
 }
 
 /* Icons */
@@ -287,6 +301,10 @@
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
   font-size: var(--font-size-base);
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
 }
 
 .signOutButton:hover {
@@ -324,17 +342,19 @@
 /* Controls Wrapper */
 .controlsWrapper {
   position: fixed;
-  bottom: 20px;
+  bottom: 14px;
   left: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 12px;
-  background-color: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  z-index: 500;
+  gap: 20px;
+  padding: 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 1200;
+  width: 250px;
+  backdrop-filter: blur(10px); /* Adds a subtle blur effect */
 }
 
 .controlsWrapper::before {
@@ -353,25 +373,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  background-color: #f3f3f3;
+  padding: 10px;
+  background-color: #f8f9fa;
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .colorPickerWrapper:hover {
-  transform: scale(1.05);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .colorPicker {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
   padding: 0;
   background: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.colorPicker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* Sliders */
@@ -380,75 +407,79 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-}
-
-.sliderGroupBrush {
-  border: 1px solid #007bff; /* Blue border for brush */
-  padding: 8px;
-  border-radius: 6px;
-}
-
-.sliderGroupEraser {
-  border: 1px solid #dc3545; /* Red border for eraser */
-  padding: 8px;
-  border-radius: 6px;
+  background-color: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .sliderLabel {
-  font-size: 12px;
-  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
 }
 
+/* Slider Input */
 .slider {
-  width: 150px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: #ddd;
+  width: 180px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #e0e0e0, #f0f0f0);
   outline: none;
-  transition: background 0.3s;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--primary-color);
   cursor: pointer;
   transition: background 0.3s;
 }
 
 .slider:hover {
-  background: #ccc;
+  background: linear-gradient(to right, #d6d6d6, #e6e6e6);
 }
 
-.slider:focus {
-  background: #ccc;
+/* Slider Thumb */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #007bff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.3s, background 0.3s;
 }
 
-.slider::-webkit-slider-thumb:hover,
-.slider::-moz-range-thumb:hover {
-  background: var(--primary-hover);
-}
-
-.slider::-webkit-slider-thumb:active,
-.slider::-moz-range-thumb:active {
+.slider::-webkit-slider-thumb:hover {
   transform: scale(1.2);
+  background: #0056b3;
 }
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #007bff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.3s, background 0.3s;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  background: #0056b3;
+}
+
+/* Focus States */
+.slider:focus {
+  background: linear-gradient(to right, #d6d6d6, #e6e6e6);
+}
+
+.slider::-webkit-slider-thumb:focus,
+.slider::-moz-range-thumb:focus {
+  outline: none;
+  background: #003d99;
+}
+
 
 /* PDF Preview */
 .pdfPreview {

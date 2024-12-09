@@ -2246,25 +2246,14 @@ return (
         </button>
 
         {/* Options Menu Icon */}
-        <button
-          className={styles.toolButton}
-          onClick={toggleOptionsMenu}
-          aria-label="More Options"
-        >
-          <FaEllipsisH className={styles.icon} />
-        </button>
+        
+        
 
         {/* Options Menu Dropdown */}
         {isOptionsMenuVisible && (
           <div className={styles.optionsMenu}>
             {/* Toggle Chatbot */}
-            <button
-              className={styles.toolButton}
-              onClick={toggleChatbot}
-              aria-label="Toggle Chatbot"
-            >
-              <FaRobot className={styles.icon} /> Chatbot
-            </button>
+            
 
             {/* Toggle Capture Mode */}
             <button
@@ -2308,20 +2297,7 @@ return (
       <div className={styles.toolbarGroupRight}>
         {/* Upload PDF Button */}
         
-          <button
-            className={styles.toolButton}
-            onClick={() => {
-              if (userRole === 'spectator') {
-                alert('You are a spectator. Request admin access to draw.');
-                return;
-              }
-              toggleUploadMenu();
-            }}
-            aria-label="Upload File"
-            disabled={userRole === 'spectator'}
-          >
-            <FaCloudUploadAlt className={styles.icon} />
-          </button>
+         
           {isUploadMenuVisible && (
             <div className={styles.uploadMenu}>
               <button
@@ -2359,20 +2335,7 @@ return (
         </div>
 
         {/* Share Link */}
-        <button
-          className={styles.toolButton}
-          onClick={() => {
-            if (userRole === 'spectator') {
-              alert('You are a spectator. Request admin access to draw.');
-              return;
-            }
-            toggleShareLinkModal();
-          }}
-          aria-label="Share Link"
-          disabled={userRole === 'spectator'}
-        >
-          <FaShareAlt className={styles.icon} /> 
-        </button>
+        
 
         {/* Clear Canvas */}
         <button
@@ -2391,15 +2354,7 @@ return (
           <FaTrashCan className={styles.icon} /> 
         </button>
 
-        {/* Sign Out */}
-        <button
-          className={styles.signOutButton}
-          onClick={handleSignOut}
-          aria-label="Sign Out"
-        >
-          Sign Out
-        </button>
-      </div>
+       
 
 
     {/* Share Link Modal */}
@@ -2539,17 +2494,22 @@ return (
       <ul>
         <li>
           <button onClick={toggleUploadMenu} className={styles.menuBtn}>
-            <span className={styles.icon}>📄</span> Upload PDF
+          <FaCloudUploadAlt className={styles.icon} /> Upload PDF
           </button>
         </li>
         <li>
           <button onClick={toggleChatbot} className={styles.menuBtn}>
-            <span className={styles.icon}>💬</span> Chat
+          <FaRobot className={styles.icon} /> Chatbot
+          </button>
+        </li>
+          <li>
+          <button onClick={toggleShareLinkModal} className={styles.menuBtn}>
+          <FaShareAlt className={styles.icon} /> Share
           </button>
         </li>
         <li>
-          <button onClick={toggleShareLinkModal} className={styles.menuBtn}>
-            <span className={styles.icon}>🔗</span> Share
+          <button onClick={toggleCaptureMode} className={styles.menuBtn}>
+          <FaCamera className={styles.icon} /> Capture Mode
           </button>
         </li>
       </ul>
@@ -2560,11 +2520,19 @@ return (
 
 <div className={styles.canvasCont} onClick={handleCanvasClick}>
   <p>
-    {isDrawing ? "Stop Drawing" : "Start Drawing"}
+    {isDrawing ? "" : ""}
   </p>
 </div>
 
-
+ {/* Sign Out */}
+ <button
+          className={styles.signOutButton}
+          onClick={handleSignOut}
+          aria-label="Sign Out"
+        >
+          Sign Out
+        </button>
+      </div>
 
 {/* Scrollable Canvas Wrapper */}
 <div className={styles.canvasWrapper}>

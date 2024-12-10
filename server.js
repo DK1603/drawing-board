@@ -789,7 +789,7 @@ app.post('/api/chat', async (req, res) => {
   try {
     // Prepare the payload for OpenAI API
     const payload = {
-      model: model || 'gpt-4', // Use GPT-4 as the default model
+      model: model || 'gpt-4o', // Use GPT-4 as the default model
       messages,
     };
 
@@ -799,7 +799,7 @@ app.post('/api/chat', async (req, res) => {
       payload,
       {
         headers: {
-          Authorization: `Bearer YOUR_OPENAI_API_KEY`, // Replace with your actual API key or use environment variables
+          Authorization: `Bearer sk-svcacct-bHgFHgSSP2KfGILAQO69j28oL7V1Ov1xHwfxYxesUiYSzIiiJU8W7c7DviebWj-qerAT3BlbkFJO6PuYmGp87IikScE63If-_aMoabuxahfTFOxaxngRJlePLAlgyfkssuzeXWYmzTGRLAA`, // Replace with your actual API key or use environment variables
           'Content-Type': 'application/json',
         },
       }

@@ -15,53 +15,81 @@ const Chatbot = () => {
   };
 
   const sendMessageToChatbot = async (content, isImage = false) => {
-    const newMessage = isImage
-      ? { role: 'user', content: '', image: content }
-      : { role: 'user', content };
+  const newMessage = isImage
+    ? { role: 'user', content: '', image: content }
+    : { role: 'user', content };
 
-    setMessages((prevMessages) => [...prevMessages, newMessage]);
+  setMessages((prevMessages) => [...prevMessages, newMessage]);
 
-    try {
-      const requestMessages = messages.map((msg) =>
-        msg.image
-          ? { role: 'user', content: 'Analyze this image.', image: msg.image } // Include the Base64 image
-          : msg
-      );
+  try {
+    const payload = {
+      model: 'gpt-4o', // Updated model
+      messages: [
+        ...messages.map((msg) => {
+          if (msg.image) {
+            return {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'What is in this image?',
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${msg.image}`, // Base64 image handling
+                  },
+                },
+              ],
+            };
+          }
+          return {
+            role: 'user',
+            content: msg.content,
+          };
+        }),
+        isImage
+          ? {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'What is in this image?',
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${content}`, // Current Base64 image
+                  },
+                },
+              ],
+            }
+          : newMessage,
+      ],
+    };
 
-      const payload = {
-        model: 'gpt-4',
-        messages: [...messages, newMessage],
-      };
-      
-      console.log('Payload to backend:', payload); // Debug log
+    console.log('Payload to backend:', payload); // Debug log
 
+    const response = await axios.post('http://localhost:3001/api/chat', payload);
 
-      const response = await axios.post('http://localhost:3001/api/chat', payload);
+    console.log('Backend response:', response.data); // Debug log
 
-console.log('Backend response:', response.data); // Debug log
-     
-        
+    const assistantMessage = response.data.choices[0].message;
+    setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+  } catch (error) {
+    console.error('Error fetching response:', error.response?.data || error.message);
+  }
+};
 
-        console.log('Backend response:', response.data); // Debug log
-
-      const assistantMessage = response.data.choices[0].message;
-      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
-    } catch (error) {
-      console.error(
-        'Error fetching response:',
-        error.response?.data || error.message
-      );
-    }
-  };
-
+  // This allows external image messages to be sent directly to the chatbot
   sendExternalMessage = (content, isImage = false) => {
     console.log('Content:', content);
     sendMessageToChatbot(content, isImage);
   };
-  
 
   return (
     <div style={{ padding: '20px', border: '1px solid #ccc' }}>
+      {/* Chat Messages */}
       <div style={{ maxHeight: '300px', overflowY: 'scroll', marginBottom: '10px' }}>
         {messages.map((msg, index) => (
           <div key={index} style={{ marginBottom: '10px' }}>
@@ -84,6 +112,7 @@ console.log('Backend response:', response.data); // Debug log
         ))}
       </div>
 
+      {/* Input and Send Button */}
       <div style={{ position: 'relative', width: '100%', marginBottom: '10px' }}>
         <textarea
           value={inputMessage}

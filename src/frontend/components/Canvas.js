@@ -632,7 +632,17 @@ const restrictPanning = (canvas, canvasBounds) => {
           obj.selectable = false;
         });
       }
-    } else if (tool === 'text') {
+    } else if (tool === 'capture') {
+      fabricCanvasRef.current.isDrawingMode = false;
+      fabricCanvasRef.current.selection = false;
+     
+
+      // Update objects to be selectable and evented
+      fabricCanvasRef.current.forEachObject((obj) => {
+        obj.selectable = false;
+        obj.evented = false;
+      });
+    }else if (tool === 'text') {
       fabricCanvasRef.current.isDrawingMode = false;
       fabricCanvasRef.current.selection = false; // Disable group selection
       fabricCanvasRef.current.defaultCursor = 'text'; // Text cursor
@@ -687,7 +697,7 @@ useEffect(() => {
     if (!fabricCanvasRef.current && canvasNode) {
       // Create the Fabric.js canvas instance
       fabricCanvasRef.current = new fabric.Canvas(canvasNode, {
-        isDrawingMode: true,
+        isDrawingMode: false,
       });
 
       console.log('Fabric.js canvas initialized:', fabricCanvasRef.current);
@@ -1215,20 +1225,16 @@ const useCaptureAndProcessCanvasArea = (fabricCanvasRef, captureMode) => {
   };
 
   if (captureMode) {
-    canvas.isDrawingMode = false; // Disable drawing when capture mode is on
-    toggleObjectInteractivity(false);
-    console.log('Capture mode enabled: Binding events');
-    /*canvas.on('mouse:down CAP ', handleMouseDown);
-    canvas.on('mouse:move CAP', handleMouseMove);
-    canvas.on('mouse:up CAP', handleMouseUp);*/
+    canvas.isDrawingMode = false; // Disable drawing
+      canvas.selection = false; // Disable group selection
+      toggleObjectInteractivity(false); // Disable interactivity for all objects
+      canvas.defaultCursor = 'crosshair'; // Set cursor to crosshair
+      console.log('Capture mode enabled: All interactivity disabled');
+    
   } else {
     canvas.isDrawingMode = true; // Re-enable drawing when capture mode is off
 
     console.log('Capture mode disabled: Unbinding events');
-    /*canvas.off('mouse:down CAP', handleMouseDown);
-    canvas.off('mouse:move CAP', handleMouseMove);
-    canvas.off('mouse:up CAP', handleMouseUp);*/
-    // Optionally clear any active selection rectangle
     if (selectionRect) {
       canvas.remove(selectionRect);
       selectionRect = null;
@@ -2304,7 +2310,10 @@ return (
             {/* Toggle Capture Mode */}
             <button
               className={styles.toolButton}
-              onClick={toggleCaptureMode}
+              onClick={() => {
+                toggleCaptureMode(); // Toggle capture mode
+                setSelectedTool('capture'); // Set the selected tool to 'capture'
+              }}
               aria-label="Toggle Capture Mode"
             >
               <FaCamera className={styles.icon} />{' '}

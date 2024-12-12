@@ -2684,7 +2684,7 @@ return (
             {member.displayName} ({member.role})
             {userRole === 'owner' && member.role === 'admin' && member.userId !== currentUser.uid && (
               <button onClick={() => handleDemoteAdmin(member.userId)} className={styles.demoteButton}>
-                Demote to Spectator
+                Remove
               </button>
             )}
           </li>
@@ -2709,14 +2709,19 @@ return (
             <ul className={styles.adminRequestList}>
               {adminRequests.map((request) => (
                 <li key={request.userId} className={styles.adminRequestItem}>
-                  {request.userId} has requested admin access.
-                  <button onClick={() => handleApproveAdmin(request.userId)} className={styles.approveButton}>
-                    Approve
-                  </button>
-                  <button onClick={() => handleDenyAdmin(request.userId)} className={styles.denyButton}>
-                    Deny
-                  </button>
-                </li>
+                <div className={styles.requestContent}>
+                  <span className={styles.userId}>{request.userId} has requested admin access.</span>
+                  <div className={styles.actionButtons}>
+                    <button onClick={() => handleApproveAdmin(request.userId)} className={styles.approveButton}>
+                      Approve
+                    </button>
+                    <button onClick={() => handleDenyAdmin(request.userId)} className={styles.denyButton}>
+                      Deny
+                    </button>
+                  </div>
+                </div>
+              </li>
+              
               ))}
             </ul>
           )}

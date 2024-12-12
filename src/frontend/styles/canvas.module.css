@@ -1017,62 +1017,77 @@
 }
 
 /* Admin Requests Section */
-.adminRequestsSection {
-  margin-top: 20px;
-}
-
-.adminRequestsSection h5 {
-  font-size: 14px;
-  font-weight: bold;
-  color: #333333;
-  margin-bottom: 10px;
-}
-
-.adminRequestList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
 .adminRequestItem {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column; /* Stack content for better responsiveness */
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 5px;
+  margin-left: -8px; /* Move it to the left */
+  width: auto; /* Allow container to resize based on content */
+  max-width: calc(100% - 20px); /* Ensure it doesn't overflow the container */
+  overflow-wrap: break-word; /* Break long words for better readability */
+}
+
+
+/* Request Content */
+.requestContent {
+  display: flex;
+  justify-content: flex-start; /* Align all items to the left */
   align-items: center;
-  padding: 8px 12px;
-  background-color: #ffffff;
-  margin-bottom: 8px;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 10px; /* Add spacing between buttons and user ID */
+}
+
+/* Action Buttons */
+.actionButtons {
+  display: left;
+  gap: 8px; /* Add spacing between the buttons */
+  order: -1; /* Move the buttons to appear before the user ID */
+}
+
+/* User ID Styling */
+.userId {
+  flex: 1; /* Push the user ID content to take the remaining space */
   font-size: 14px;
+  color: #333;
+  white-space: nowrap; /* Prevent text from breaking mid-word */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Add ellipsis for truncated text */
+  text-align: left; /* Align text to the left */
 }
 
-.adminRequestItem button {
-  padding: 4px 8px;
+
+/* Approve and Deny Buttons */
+.approveButton,
+.denyButton {
+  padding: 6px 12px;
+  font-size: 14px;
   border: none;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
 }
 
-.adminRequestItem .approveButton {
-  background-color: #28a745;
-  color: #ffffff;
-  margin-right: 4px;
-  transition: background-color 0.3s;
+.approveButton {
+  background-color: #28a745; /* Green for approve */
+  color: #fff;
 }
 
-.adminRequestItem .approveButton:hover {
+.approveButton:hover {
   background-color: #218838;
+  transform: scale(1.05);
 }
 
-.adminRequestItem .denyButton {
-  background-color: #dc3545;
-  color: #ffffff;
-  transition: background-color 0.3s;
+.denyButton {
+  background-color: #dc3545; /* Red for deny */
+  color: #fff;
 }
 
-.adminRequestItem .denyButton:hover {
+.denyButton:hover {
   background-color: #c82333;
+  transform: scale(1.05);
 }
 
 /* PDF Preview Close Button */

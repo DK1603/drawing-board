@@ -129,21 +129,22 @@ const Chatbot = () => {
             maxHeight: '200px',
           }}
         />
-        <button
-          onClick={handleSend}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            right: '10px',
-            transform: 'translateY(-50%)',
-            padding: '5px 15px',
-            border: 'none',
-            borderRadius: '5px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            cursor: 'pointer',
-          }}
-        >
+       <button
+        onClick={handleSend}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: '10px',
+          transform: 'translateY(-50%)',
+          padding: '5px 15px',
+          fontSize: '16px',
+          border: 'none',
+          borderRadius: '5px',
+          backgroundColor: 'transparent',
+          color: 'black', 
+          cursor: 'pointer',
+        }}
+      >
           <IoSend />
         </button>
       </div>

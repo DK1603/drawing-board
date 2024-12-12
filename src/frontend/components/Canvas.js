@@ -16,12 +16,13 @@ import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs, getDoc, onSnapshot } from 'firebase/firestore';
 import { FaPencilAlt, FaEraser, FaCloudUploadAlt, FaRobot, FaHighlighter, FaMouse, FaShareAlt, FaEllipsisH, FaCamera } from "react-icons/fa";
-import { FaTrashCan } from "react-icons/fa6";
+import { FaTrashCan, FaRegSquareFull, FaRegCircle } from "react-icons/fa6";
 import { SiEraser } from "react-icons/si";
 import { BiSolidEraser } from "react-icons/bi";
-import { IoCloseSharp, IoText, IoSquare, IoTriangle, IoEllipse, IoShapesOutline } from "react-icons/io5";
+import { IoCloseSharp, IoText, IoSquare, IoTriangle, IoEllipse, IoShapesOutline, IoCloudUploadOutline, IoSearch } from "react-icons/io5";
 import { FaHandPaper } from 'react-icons/fa';
-import { IoMdUndo, IoMdRedo } from "react-icons/io";
+import { IoMdUndo, IoMdRedo, IoIosClose } from "react-icons/io";
+import { FiTriangle } from "react-icons/fi";
 
 
 
@@ -2105,7 +2106,7 @@ return (
           aria-pressed={selectedTool === 'hand'}
           aria-label="Hand Tool"
         >
-          <FaHandPaper className={styles.icon} /> Hand
+          <FaHandPaper className={styles.icon} />
         </button>
 
         {/* Eraser Tool */}
@@ -2209,75 +2210,62 @@ return (
         )}
 
         {/* Shape Tool Button */}
-        <button
-          className={`${styles.toolButton} ${
-            ['rectangle', 'triangle', 'circle'].includes(selectedTool) ? styles.activeTool : ''
-          }`}
-          onClick={() => {
-            if (userRole === 'spectator') {
-              alert('You are a spectator. Request admin access to draw.');
-              return;
-            }
-            setIsShapeOptionsVisible((prev) => !prev);
-          }}
-          aria-pressed={['rectangle', 'triangle', 'circle'].includes(selectedTool)}
-          aria-label="Select Shape Tool"
-          disabled={userRole === 'spectator'}
-        >
-          {selectedTool === 'rectangle' && <IoRectangle className={styles.icon} />}
-          {selectedTool === 'triangle' && <IoTriangle className={styles.icon} />}
-          {selectedTool === 'circle' && <IoCircle className={styles.icon} />}
-          {!['rectangle', 'triangle', 'circle'].includes(selectedTool) && <IoShapes className={styles.icon} />}
-          Shape
-        </button>
+        <div className={styles.toolButtonWrapper} style={{ position: 'relative' }}>
+          <button
+            className={`${styles.toolButton} ${
+              ['rectangle', 'triangle', 'circle'].includes(selectedTool) ? styles.activeTool : ''
+            }`}
+            onClick={() => {
+              if (userRole === 'spectator') {
+                alert('You are a spectator. Request admin access to draw.');
+                return;
+              }
+              setIsShapeOptionsVisible((prev) => !prev);
+            }}
+            aria-pressed={['rectangle', 'triangle', 'circle'].includes(selectedTool)}
+            aria-label="Select Shape Tool"
+            disabled={userRole === 'spectator'}
+          >
+            {selectedTool === 'rectangle' && <IoRectangle className={styles.icon} />}
+            {selectedTool === 'triangle' && <IoTriangle className={styles.icon} />}
+            {selectedTool === 'circle' && <IoCircle className={styles.icon} />}
+            {!['rectangle', 'triangle', 'circle'].includes(selectedTool) && <IoShapes className={styles.icon} />}
+            
+          </button>
 
-        {/* Shape Options Dropdown */}
-        {isShapeOptionsVisible && (
-          <div className={styles.shapeOptions}>
-            <button
-              onClick={() => {
-                if (userRole === 'spectator') {
-                  alert('You are a spectator. Request admin access to draw.');
-                  return;
-                }
-                setSelectedTool('rectangle');
-                setIsShapeOptionsVisible(false); // Close dropdown
-              }}
-              aria-label="Rectangle Tool"
-              disabled={userRole === 'spectator'}
-            >
-              <IoRectangle className={styles.icon} />
-            </button>
-            <button
-              onClick={() => {
-                if (userRole === 'spectator') {
-                  alert('You are a spectator. Request admin access to draw.');
-                  return;
-                }
-                setSelectedTool('circle');
-                setIsShapeOptionsVisible(false); // Close dropdown
-              }}
-              aria-label="Circle Tool"
-              disabled={userRole === 'spectator'}
-            >
-              <IoCircle className={styles.icon} />
-            </button>
-            <button
-              onClick={() => {
-                if (userRole === 'spectator') {
-                  alert('You are a spectator. Request admin access to draw.');
-                  return;
-                }
-                setSelectedTool('triangle');
-                setIsShapeOptionsVisible(false); // Close dropdown
-              }}
-              aria-label="Triangle Tool"
-              disabled={userRole === 'spectator'}
-            >
-              <IoTriangle className={styles.icon} />
-            </button>
+          {/* Shape Options Dropdown */}
+          {isShapeOptionsVisible && (
+            <div className={styles.shapeOptions}>
+              <button
+                onClick={() => {
+                  setSelectedTool('rectangle');
+                  setIsShapeOptionsVisible(false); // Close dropdown
+                }}
+                aria-label="Rectangle Tool"
+              >
+                <FaRegSquareFull className={styles.icon} />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTool('circle');
+                  setIsShapeOptionsVisible(false); // Close dropdown
+                }}
+                aria-label="Circle Tool"
+              >
+                <FaRegCircle className={styles.icon} />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTool('triangle');
+                  setIsShapeOptionsVisible(false); // Close dropdown
+                }}
+                aria-label="Triangle Tool"
+              >
+                <FiTriangle className={styles.icon} />
+              </button>
+            </div>
+          )}
           </div>
-        )}
 
         {/* Select Tool */}
         <button
@@ -2348,11 +2336,9 @@ return (
         </button>
       
 
-      {/* Right Group: Upload, Share, Clear Canvas, Sign Out */}
-      <div className={styles.toolbarGroupRight}>
+      
+      <div className={styles.groupRight}>
         {/* Upload PDF Button */}
-        
-         
           {isUploadMenuVisible && (
             <div className={styles.uploadMenu}>
               <button
@@ -2368,7 +2354,7 @@ return (
                 aria-label="Upload New File"
                 disabled={userRole === 'spectator'}
               >
-                Upload New File
+                <IoCloudUploadOutline className={styles.menuItemIcon} /> Upload New File
               </button>
               <button
                 className={styles.menuItem}
@@ -2383,7 +2369,7 @@ return (
                 aria-label="Browse Existing Files"
                 disabled={userRole === 'spectator'}
               >
-                Browse Existing Files
+                <IoSearch className={styles.menuItemIcon} /> Browse Existing Files
               </button>
             </div>
           )}
@@ -2519,11 +2505,11 @@ return (
 
     {/* Chatbot Modal */}
     {isChatbotVisible && (
-      <div className={styles.chatbotModal}>
+      <div className={styles.chatbotModalWrapper}>
         <Chatbot />
         <button
           onClick={toggleChatbot}
-          className={styles.closeButton}
+          className={styles.closeButtonChat}
           aria-label="Close Chatbot"
         >
           <IoCloseSharp />
@@ -2667,80 +2653,75 @@ return (
 
 {/* Bottom Right - User List */}
 <div className={styles.userListContainer}>
-        {!isListVisible && (
-          <button
-            className={styles.toggleButton}
-            onClick={toggleListVisibility}
-            aria-label="Show User List"
-          >
-            User List
+  {!isListVisible && (
+    <button
+      className={styles.toggleButton}
+      onClick={toggleListVisibility}
+      aria-label="Show User List"
+    >
+      User List
+    </button>
+  )}
+  {isListVisible && (
+    <div className={styles.userList} tabIndex={0} aria-label="User List">
+        {/* Close Button */}
+      <button
+        className={styles.closeUserButton}
+        onClick={toggleListVisibility}
+        aria-label="Close User List"
+      >
+       <IoIosClose />
+      </button>
+
+      <h4>Members</h4>
+      <ul className={styles.memberList}>
+        {members.map((member) => (
+          <li key={member.userId} className={styles.memberItem}>
+            {member.displayName} ({member.role})
+            {userRole === 'owner' && member.role === 'admin' && member.userId !== currentUser.uid && (
+              <button onClick={() => handleDemoteAdmin(member.userId)} className={styles.demoteButton}>
+                Demote to Spectator
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {userRole === 'spectator' && (
+        <>
+          <button onClick={handleRequestAdminAccess} className={styles.requestAdminButton}>
+            Request Admin Access
           </button>
-        )}
-        {isListVisible && (
-          <div
-            className={styles.userList}
-            onBlur={handleBlur}
-            tabIndex={0}
-            aria-label="User List"
-          >
-            <h4>Members</h4>
-            <ul className={styles.memberList}>
-              {members.map((member) => (
-                <li key={member.userId} className={styles.memberItem}>
-                  {member.displayName} ({member.role})
-                  {/* If owner and this member is admin (not the current user), show demote button */}
-                  {userRole === 'owner' && member.role === 'admin' && member.userId !== currentUser.uid && (
-                    <button onClick={() => handleDemoteAdmin(member.userId)} className={styles.demoteButton}>
-                      Demote to Spectator
-                    </button>
-                  )}
+          <button onClick={handleCopyBoard} className={styles.copyBoardButton}>
+            Copy Desk
+          </button>
+        </>
+      )}
+      {userRole === 'owner' && (
+        <div className={styles.adminRequestsSection}>
+          <h5>Admin Requests:</h5>
+          {adminRequests.length === 0 ? (
+            <p>No pending admin requests.</p>
+          ) : (
+            <ul className={styles.adminRequestList}>
+              {adminRequests.map((request) => (
+                <li key={request.userId} className={styles.adminRequestItem}>
+                  {request.userId} has requested admin access.
+                  <button onClick={() => handleApproveAdmin(request.userId)} className={styles.approveButton}>
+                    Approve
+                  </button>
+                  <button onClick={() => handleDenyAdmin(request.userId)} className={styles.denyButton}>
+                    Deny
+                  </button>
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
-            {/* If current user is spectator, show request admin button */}
-            {userRole === 'spectator' && (
-              <button onClick={handleRequestAdminAccess} className={styles.requestAdminButton}>
-                Request Admin Access
-              </button>
-
-              
-            )}
-
-            {userRole === 'spectator' && (
-  <button onClick={handleCopyBoard} className={styles.copyBoardButton}>
-    Copy Desk
-  </button>
-)}
-
-
-            {/* If current user is owner, show admin requests */}
-            {userRole === 'owner' && (
-              <div className={styles.adminRequestsSection}>
-                <h5>Admin Requests:</h5>
-                {adminRequests.length === 0 ? (
-                  <p>No pending admin requests.</p>
-                ) : (
-                  <ul className={styles.adminRequestList}>
-                    {adminRequests.map((request) => (
-                      <li key={request.userId} className={styles.adminRequestItem}>
-                        {/* Ideally, fetch user’s displayName similarly as members */}
-                        {request.userId} has requested admin access.
-                        <button onClick={() => handleApproveAdmin(request.userId)} className={styles.approveButton}>
-                          Approve
-                        </button>
-                        <button onClick={() => handleDenyAdmin(request.userId)} className={styles.denyButton}>
-                          Deny
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
       
       
     </div>

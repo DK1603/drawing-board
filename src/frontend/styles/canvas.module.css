@@ -50,8 +50,7 @@
 }
 
 .toolbarGroup,
-.toolbarGroupCenter,
-.toolbarGroupRight {
+.toolbarGroupCenter{
   display: flex;
   align-items: center;
   gap: 10px; /* Consistent spacing between toolbar items */
@@ -60,11 +59,6 @@
 .toolbarGroupCenter {
   justify-content: center;
   flex-grow: 1; /* Center group takes up available space */
-}
-
-.toolbarGroupRight {
-  justify-content: flex-end; /* Align items to the right */
-  flex-grow: 0; /* Prevent growing */
 }
 
 .toolbarGroup {
@@ -538,8 +532,46 @@
 
 /* Styles for Upload Menu and Submenu */
 .uploadMenu {
-  position: relative;
+  position: absolute; /* Positioned relative to the wrapping div */
+  top: 40px; /* Adjust spacing below the button */
+  left: 0; /* Align with the button */
+  background-color: #ffffff;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Space between the buttons */
+  width: 200px;
 }
+
+.menuItem {
+  display: flex;
+  align-items: center; /* Centers icon and text vertically */
+  gap: 10px; /* Space between the icon and text */
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+  color: #333;
+  font-size: 14px; /* Slightly larger font for better readability */
+  text-align: left; /* Aligns text to the left */
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.menuItem:hover {
+  background-color: #e3e3e3;
+  transform: scale(1.02);
+}
+
+.menuItemIcon {
+  font-size: 16px; /* Icon size */
+  color: #555; /* Icon color */
+}
+
+
 
 .uploadSubMenu {
   position: absolute;
@@ -566,24 +598,6 @@
 }
 
 .subMenuItem:hover {
-  background-color: #f0f0f0;
-}
-
-
-.menuItem {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s;
-}
-
-.menuItem:hover {
   background-color: #f0f0f0;
 }
 
@@ -633,6 +647,36 @@
   outline: none;
 }
 
+.shapeOptions {
+  position: absolute;
+  top: 100%;
+  left: -15px;
+  background-color: #ffffff;
+  padding: 8px;
+  width: 90px;
+  justify-content: center;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shapeOptions button {
+  padding: 8px 12px;
+  border: solid 0.5px black;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.shapeOptions button:hover {
+  background-color: #e6e6e6;
+  transform: scale(1.05);
+}
+
 .copyButton,
 .closeButton {
   padding: 10px 16px;
@@ -677,9 +721,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  position: absolute;
+  position: relative;
   top: 50px;
-  left: 0;
+  transform: translateX(325px);
   background: #ffffff;
   padding: 12px;
   border-radius: 8px;
@@ -730,9 +774,9 @@
 
 /* Eraser Options */
 .eraserOptions {
-  position: absolute;
+  position: relative;
   top: 50px;
-  left: 0;
+  left: 275px  !important;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -764,12 +808,12 @@
 }
 
 /* Chatbot Modal Reuse */
-.chatbotModal {
+.chatbotModalWrapper {
   position: fixed;
-  top: 60px;
-  right: 20px;
-  width: 360px;
-  height: calc(100vh - 80px);
+  top: 70px;
+  right: 0;
+  width: 350px;
+  height: 650px;
   background-color: #ffffff;
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -778,6 +822,19 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
+}
+
+.closeButtonChat {
+  position: absolute;
+  top: 15px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+.closeButtonChat:hover{
+  transform: scale(1.1);
 }
 
 .chatbotModal button {
@@ -796,57 +853,226 @@
   color: #343a40;
 }
 
+/* This is the container around the listItems, if you remove it everything will be better */
 /* User List Container */
-.userListContainer {
+/* .userListContainer {
   position: fixed;
   bottom: 20px;
   right: 20px;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  width: 250px;
+  padding-left: 0;
+  padding-top: 0;
+  padding-bottom: 8px;
+  padding-right: 0;
+  z-index: 1000;
+  transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  z-index: 500;
+  align-items: center;
+  justify-content: center;
 }
 
+.userListContainer.open {
+  width: 250px;
+  padding-left: 16px;
+  padding-right: 16px;
+} */
+
+/* User List */
+.userList {
+  padding: 10px 16px;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  width: 100%; 
+  margin: 0 auto;
+  text-align: center;
+}
+
+.closeUserButton {
+  position: absolute;
+  top: 10px;
+  right: 5px;
+  background: transparent;
+  border: none;
+  font-size: 25px;
+  cursor: pointer;
+}
+.closeUserButton:hover{
+  transform: scale(1.1);
+}
+
+/* Toggle Button */
 .toggleButton {
-  background-color: #17a2b8;
+  padding: 8px 12px;
+  background-color: #007bff;
   color: #ffffff;
   border: none;
-  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggleButton:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.userList h4 {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 12px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 8px;
+}
+
+/* Member List */
+.memberList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.memberItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  margin-bottom: 8px;
   border-radius: 6px;
-  font-size: var(--font-size-base);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.memberItem:last-child {
+  margin-bottom: 0;
+}
+
+.memberItem button {
+  padding: 4px 8px;
+  background-color: #dc3545;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
 }
 
-.toggleButton:hover {
-  background-color: #138496;
-  transform: translateY(-2px);
+.memberItem button:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
 }
 
-.userList {
-  background-color: #ffffff;
-  padding: 12px;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  margin-top: 8px;
-  width: 180px;
-  outline: none; /* Remove outline for better aesthetics */
-}
-
-.userList:focus {
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
-}
-
-.userItem {
-  margin-bottom: 8px;
-  color: #333333;
-  font-weight: 500;
+/* Request Admin Button */
+.requestAdminButton {
+  width: 100%;
+  padding: 8px;
+  background-color: #28a745;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
   cursor: pointer;
-  transition: color 0.3s;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
 }
 
-.userItem:hover {
-  color: var(--primary-color);
+.requestAdminButton:hover {
+  background-color: #218838;
+  transform: scale(1.05);
+}
+
+/* Copy Board Button */
+.copyBoardButton {
+  width: 100%;
+  padding: 8px;
+  background-color: #007bff;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.copyBoardButton:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+/* Admin Requests Section */
+.adminRequestsSection {
+  margin-top: 20px;
+}
+
+.adminRequestsSection h5 {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 10px;
+}
+
+.adminRequestList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.adminRequestItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+}
+
+.adminRequestItem button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adminRequestItem .approveButton {
+  background-color: #28a745;
+  color: #ffffff;
+  margin-right: 4px;
+  transition: background-color 0.3s;
+}
+
+.adminRequestItem .approveButton:hover {
+  background-color: #218838;
+}
+
+.adminRequestItem .denyButton {
+  background-color: #dc3545;
+  color: #ffffff;
+  transition: background-color 0.3s;
+}
+
+.adminRequestItem .denyButton:hover {
+  background-color: #c82333;
 }
 
 /* PDF Preview Close Button */
@@ -2694,8 +2920,7 @@ input[type="file"] {
   }
 
   .toolbarGroup,
-  .toolbarGroupCenter,
-  .toolbarGroupRight {
+  .toolbarGroupCenter {
     justify-content: center;
     margin-bottom: 8px;
   }

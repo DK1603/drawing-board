@@ -2549,7 +2549,11 @@ return (
           </button>
         </li>
         <li>
-          <button onClick={toggleCaptureMode} className={styles.menuBtn}>
+          <button onClick={() => {
+                toggleCaptureMode(); // Toggle capture mode
+                setSelectedTool('capture');
+                toggleChatbot(); // Set the selected tool to 'capture'
+              }} className={styles.menuBtn}>
           <FaCamera className={styles.icon} /> Capture Mode
           </button>
         </li>

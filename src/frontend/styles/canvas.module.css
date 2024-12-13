@@ -1,5 +1,6 @@
 /* CSS Variables for Consistency */
 :root {
+
   --primary-color: #007bff;
   --primary-hover: #0056b3;
   --secondary-color: #6c757d;
@@ -8,11 +9,12 @@
   --warning-color: #ffc107;
   --light-gray: #f0f0f0;
   --dark-gray: #333333;
+  --outline-color: #6c757d;
   --font-size-base: 14px;
   --button-padding: 8px 12px;
 }
 
-/* Canvas Background */
+/* 3. Modified Board Container */
 .boardContainer {
   display: flex;
   flex-direction: column;
@@ -20,28 +22,31 @@
   width: 100vw;
   overflow: hidden;
   position: relative;
-  background-color: #f9f9f9;
-  background-image: radial-gradient(circle, #e0e0e0 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-color: #ffffff; /* Clean background */
+  background-image: none; /* Removed radial gradient */
 }
 
-/* Toolbar */
+/* 4. Ensured Toolbar Has Solid Background */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  align-items: center; /* Align items vertically */
   gap: 5px;
   padding: 8px;
-  background-color: #ffffff;
+  background-color: #ffffff; /* Solid background */
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   position: fixed;
+  
   top: 20px;
-  left: 300px;
+  left: 550px;
   right: 300px;
   z-index: 1000;
-  max-width: calc(100% - 600px); /* Ensures consistent placement */
-  transition: all 0.3s ease-in-out; /* Smooth hover effect */
+  width: 2500px; /* Fixed width for the toolbar */
+
+  max-width: 40%;
+  transition: all 0.3s ease-in-out;
 }
 
 .toolbar:hover {
@@ -306,32 +311,48 @@
   transform: translateY(-2px);
 }
 
-/* Canvas Wrapper */
-.canvasWrapper {
-  flex-grow: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start; /* Align to top for better scrolling */
-  margin-top: 60px; /* Space for fixed toolbar */
-  padding: 20px;
-  position: relative; /* Ensures positioning context */
-
-  width: 100%; /* Set wrapper width */
-  height: 100%; /* Set wrapper height */
-  background-color: #f0f0f0; /* Optional: Background for non-drawable area */
-
-
+/* Global Box Sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
-
+/* Canvas Styling */
 .canvas {
-  position: absolute;
+  position: absolute; /* Allows for translation/panning */
   top: 0;
   left: 0;
-  display: block;
-  margin: 0 auto;
-  border: 2px dashed #007bff; /* Dashed blue outline for the drawable area */
-  box-sizing: border-box; /* Ensures the border fits within the canvas dimensions */
+  width: 2000px; /* Larger than the wrapper */
+  height: 2000px; /* Larger than the wrapper */
+  border: none; /* The border is now on the wrapper, not the canvas */
+  cursor: crosshair; /* Default cursor, will change when hand tool is active */
 }
+
+
+/* Canvas Wrapper Styling */
+.canvasWrapper {
+  position: relative;
+  width: 1915px;
+  height: 975px;
+  margin: 0px auto;
+  border: 2px dashed var(--outline-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+
+/* When hand tool is active, change cursor style */
+.handActive {
+  cursor: grab;
+}
+
+/* While dragging with the hand tool, you can show a grabbing cursor */
+.handActive:active {
+  cursor: grabbing;
+}
+
 
 /* Controls Wrapper */
 .controlsWrapper {
@@ -3079,5 +3100,38 @@ input[type="file"] {
   .userListContainer {
     bottom: 10px;
     right: 10px;
+  }
+}
+
+/* 5. Responsive Enhancements for Canvas */
+@media (max-width: 1200px) {
+  .canvas {
+    min-width: 700px;
+    min-height: 500px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .canvas {
+    min-width: 600px;
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .canvas {
+    min-width: 100%;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .canvasWrapper {
+    padding: 5px;
+  }
+
+  .canvas {
+    min-width: 100%;
+    min-height: auto;
   }
 }

@@ -670,9 +670,10 @@ const restrictPanning = (canvas, canvasBounds) => {
     } else if (tool === 'hand') {
       fabricCanvasRef.current.isDrawingMode = false;
       fabricCanvasRef.current.selection = false;
+      // Use a 'grab' cursor to indicate panning
       fabricCanvasRef.current.defaultCursor = 'grab';
-    
-      // Make all objects not selectable and not evented
+      
+      // Make all objects non-selectable since it's just panning
       fabricCanvasRef.current.forEachObject((obj) => {
         obj.selectable = false;
         obj.evented = false;
@@ -1407,6 +1408,10 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
 
   // State to manage drawing status
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // for hand do not touch the following states
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+
 
   // Toggle the menu visibility
   const toggleMenu = () => {
@@ -2714,20 +2719,14 @@ return (
 
 {/* Scrollable Canvas Wrapper */}
 <div className={styles.canvasWrapper}>
-  <canvas
-    ref={(node) => {
-      setCanvasNode(node);
-      if (node) {
-        console.log('Canvas element rendered:', node);
-      } else {
-        console.warn('Canvas element not found');
-      }
-    }}
-    id="main-canvas"
-    width={window.innerWidth * 2} // Ensures the canvas is larger than the viewport
-    height={window.innerHeight * 2}
-    className={styles.canvas} // Apply the custom styles
-  />
+<canvas
+  ref={(node) => setCanvasNode(node)}
+  id="main-canvas"
+  width={2000} // Match the CSS size
+  height={2000}
+  className={styles.canvas}
+/>
+
 </div>
 
 
@@ -2817,7 +2816,7 @@ return (
             {member.displayName} ({member.role})
             {userRole === 'owner' && member.role === 'admin' && member.userId !== currentUser.uid && (
               <button onClick={() => handleDemoteAdmin(member.userId)} className={styles.demoteButton}>
-                Remove
+                Demote
               </button>
             )}
           </li>

@@ -1090,6 +1090,116 @@
   transform: scale(1.05);
 }
 
+
+/* Toast container */
+.toastContainer {
+  width: 250px;
+  text-align: center;
+  border-radius: 5px;
+  border: 1px solid green !important; 
+  background-color: white ; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  padding: 5px;
+  margin-top: 5px;
+  margin-right: 0;
+  position: fixed;
+  top: 20px;  
+  right: 20px; 
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Success Toast */
+.toastSuccess {
+  background-color: white; 
+}
+.toastSuccess::after {
+  content: '';
+  position: absolute;
+  bottom: 0; 
+  left: 0;
+  width: 100%; 
+  height: 4px; 
+  background-color: green; 
+  animation: shrinkLine 5s forwards; 
+}
+
+/* Animation for Shrinking Line */
+@keyframes shrinkLine {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%; 
+    left: 100%;
+  }
+}
+
+/* Error Toast */
+.toastError {
+  background-color: white; 
+}
+.toastError::after {
+  content: '';
+  position: absolute;
+  bottom: 0; 
+  left: 0;
+  width: 100%; 
+  height: 4px; 
+  background-color: red; 
+  animation: shrinkLine 5s forwards; 
+}
+
+/* Animation for Shrinking Line */
+@keyframes shrinkLine {
+  0% {
+    width: 100%; 
+  }
+  100% {
+    width: 0%;
+    left: 100%; 
+  }
+}
+.toastContainerShare{
+  width: 250px;
+  text-align: center;
+  border-radius: 5px;
+  border: 1px solid green !important; 
+  background-color: white ; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  margin-top: 5px;
+  margin-right: 0;
+  position: fixed;
+  top: 20px;  
+  right: 20px; 
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toastContainerCopy{
+  width: 250px;
+  text-align: center;
+  border-radius: 5px;
+  border: 1px solid green !important; 
+  background-color: white ; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  padding: 13px;
+  margin-top: 5px;
+  margin-right: 0;
+  position: fixed;
+  top: 20px;  
+  right: 20px; 
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* PDF Preview Close Button */
 .pdfPreview .closeButton {
   background-color: var(--secondary-color);

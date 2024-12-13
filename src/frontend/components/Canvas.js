@@ -12,6 +12,8 @@ import { unstable_usePrompt, useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric'; // Fabric.js library for canvas manipulation
 import io from 'socket.io-client'; // Socket.io for real-time communication
 import styles from '../styles/canvas.module.css';
+import Toastify from 'toastify-js';
+
 import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, collection, doc, setDoc, getDocs, getDoc, onSnapshot } from 'firebase/firestore';
@@ -1507,17 +1509,43 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId: currentUser.uid, boardId }),
             });
+        
             if (response.ok) {
-              alert('Admin request submitted successfully.');
+              // Success Toast
+              Toastify({
+                text: "Admin request submitted successfully.",
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastSuccess}`,  // Apply success class
+              }).showToast();
             } else {
               const errorMsg = await response.text();
-              alert(`Error requesting admin: ${errorMsg}`);
+              // Error Toast for failure to submit admin request
+              Toastify({
+                text: `Error requesting admin: ${errorMsg}`,
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+              }).showToast();
             }
           } catch (error) {
             console.error('Error requesting admin:', error);
-            alert('Failed to request admin. Please try again.');
+            // Error Toast for network or other failures
+            Toastify({
+              text: "Failed to request admin. Please try again.",
+              duration: 5000, // Toast duration
+              close: true,
+              gravity: "top", // Position at top
+              position: "right", // Position on the right
+              className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+            }).showToast();
           }
         };
+        
     
         const handleApproveAdmin = async (targetUserId) => {
           try {
@@ -1526,15 +1554,37 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
             });
+
             if (response.ok) {
-              alert('Admin request approved successfully');
+              Toastify({
+                text: "Admin request approved successfully!",
+                duration: 5000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                className: `${styles.toastContainer} ${styles.toastSuccess}`,  // Apply custom class for success
+              }).showToast();
             } else {
               const errorMsg = await response.text();
-              alert(`Error approving admin request: ${errorMsg}`);
+              Toastify({
+                text: `Error approving admin request: ${errorMsg}`,
+                
+                close: true,
+                gravity: "top",
+                position: "right",
+                className: `${styles.toastContainer} ${styles.toastError}`,  // Apply custom class for error
+              }).showToast();
             }
           } catch (error) {
             console.error('Error approving admin request:', error);
-            alert('Failed to approve admin request. Please try again.');
+            Toastify({
+              text: "Failed to approve admin request. Please try again.",
+              
+              close: true,
+              gravity: "top",
+              position: "right",
+              className: `${styles.toastContainer} ${styles.toastError}`,  // Apply custom class for error
+            }).showToast();
           }
         };
     
@@ -1545,17 +1595,43 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
             });
+        
             if (response.ok) {
-              alert('Admin request denied successfully');
+              // Success Toast
+              Toastify({
+                text: "Admin request denied successfully!",
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastSuccess}`,  // Apply success class
+              }).showToast();
             } else {
               const errorMsg = await response.text();
-              alert(`Error denying admin request: ${errorMsg}`);
+              // Error Toast for denial failure
+              Toastify({
+                text: `Error denying admin request: ${errorMsg}`,
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+              }).showToast();
             }
           } catch (error) {
             console.error('Error denying admin request:', error);
-            alert('Failed to deny admin request. Please try again.');
+            // Error Toast for network or other failures
+            Toastify({
+              text: "Failed to deny admin request. Please try again.",
+              duration: 5000, // Toast duration
+              close: true,
+              gravity: "top", // Position at top
+              position: "right", // Position on the right
+              className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+            }).showToast();
           }
         };
+        
     
         const handleDemoteAdmin = async (targetUserId) => {
           try {
@@ -1564,43 +1640,92 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ownerId: currentUser.uid, boardId, userId: targetUserId }),
             });
+        
             if (response.ok) {
-              alert('Admin demoted to spectator successfully');
+              // Success Toast
+              Toastify({
+                text: "Admin demoted to spectator successfully",
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastSuccess}`,  // Apply success class
+              }).showToast();
             } else {
               const errorMsg = await response.text();
-              alert(`Error demoting admin: ${errorMsg}`);
+              // Error Toast for demotion failure
+              Toastify({
+                text: `Error demoting admin: ${errorMsg}`,
+                duration: 5000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+              }).showToast();
             }
           } catch (error) {
             console.error('Error demoting admin:', error);
-            alert('Failed to demote admin. Please try again.');
+            // Error Toast for network or other failures
+            Toastify({
+              text: "Failed to demote admin. Please try again.",
+              duration: 5000, // Toast duration
+              close: true,
+              gravity: "top", // Position at top
+              position: "right", // Position on the right
+              className: `${styles.toastContainer} ${styles.toastError}`,  // Apply error class
+            }).showToast();
           }
         };
+        
         // ADD END
 
         const handleCopyBoard = async () => {
           try {
             const token = await auth.currentUser.getIdToken();
             const response = await fetch('/api/copyBoard', {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` // Include the token
-            },
-             body: JSON.stringify({ sourceBoardId: boardId }),
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`, // Include the token
+              },
+              body: JSON.stringify({ sourceBoardId: boardId }),
             });
+        
             if (response.ok) {
               const { newBoardId } = await response.json();
-              alert('Desk copied successfully!');
+              Toastify({
+                text: "Desk copied successfully!",
+                duration: 3000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainerCopy} ${styles.toastSuccess}`, // Apply success class
+              }).showToast();
               navigate(`/boards/${newBoardId}`);
             } else {
               const errorMsg = await response.text();
-              alert(`Error copying desk: ${errorMsg}`);
+              Toastify({
+                text: `Error copying desk: ${errorMsg}`,
+                duration: 5000, // Error duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainerCopy} ${styles.toastError}`, // Apply error class
+              }).showToast();
             }
           } catch (error) {
             console.error('Error copying desk:', error);
-            alert('Failed to copy desk. Please try again.');
+            Toastify({
+              text: "Failed to copy desk. Please try again.",
+              duration: 5000, // Error duration
+              close: true,
+              gravity: "top", // Position at top
+              position: "right", // Position on the right
+              className: `${styles.toastContainerCopy} ${styles.toastError}`, // Apply error class
+            }).showToast();
           }
         };
+        
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2411,16 +2536,24 @@ return (
             aria-label="Board Share Link"
           />
           <div>
-            <button
-              className={styles.copyButton}
-              onClick={() => {
-                navigator.clipboard.writeText(boardId);
-                alert('Board ID copied to clipboard!');
-              }}
-              aria-label="Copy Share Link"
-            >
-              Copy Link
-            </button>
+                    <button
+            className={styles.copyButton}
+            onClick={() => {
+              navigator.clipboard.writeText(boardId);
+              Toastify({
+                text: "Board ID copied to clipboard!",
+                duration: 3000, // Toast duration
+                close: true,
+                gravity: "top", // Position at top
+                position: "right", // Position on the right
+                className: `${styles.toastContainerShare} ${styles.toastSuccess}`, // Apply success class
+              }).showToast();
+            }}
+            aria-label="Copy Share Link"
+          >
+            Copy Link
+          </button>
+
             <button
               className={styles.closeButton}
               onClick={toggleShareLinkModal}

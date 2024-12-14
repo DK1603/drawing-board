@@ -1857,26 +1857,65 @@ const currentShapeDataRef = useRef(null); // Reference for the shape's data
       }
     };
 
-    // Function to handle file selection durint upload
-    const handleFileSelect = async (event) => {
+     // Function to handle file selection durint upload
+     const handleFileSelect = async (event) => {
       const file = event.target.files[0];
-        if (file) {
-          // Validate file type
-          if (file.type !== 'application/pdf') {
-            console.error('Invalid file type. Please upload a PDF file.');
-            return;
-          }
     
-          // Validate file size (e.g., 10MB limit)
-          const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-          if (file.size > MAX_FILE_SIZE) {
-            console.error('File size exceeds the maximum limit of 10MB.');
-            return;
-          }
-    
-          // Proceed to upload the file
-          await uploadPdfFile(file);
+      if (file) {
+        // Validate file type
+        if (file.type !== 'application/pdf') {
+          Toastify({
+            text: "Invalid file type. Please upload a PDF file.",
+            duration: 5000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            className: `${styles.toastContainer} ${styles.toastError}`, // Custom error style
+          }).showToast();
+          return;
         }
+    
+        // Validate file size (e.g., 10MB limit)
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (file.size > MAX_FILE_SIZE) {
+          Toastify({
+            text: "File size exceeds the maximum limit of 10MB.",
+            duration: 5000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            className: `${styles.toastContainer} ${styles.toastError}`, // Custom error style
+          }).showToast();
+          return;
+        }
+    
+        // Proceed to upload the file
+        try {
+          await uploadPdfFile(file);
+    
+          Toastify({
+            text: `Successfully uploaded: ${file.name}`,
+            duration: 5000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            className: `${styles.toastContainer} ${styles.toastSuccess}`, // Custom success style
+          }).showToast();
+    
+          // Optional: Clear the input value
+          event.target.value = '';
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          Toastify({
+            text: "Failed to upload the file. Please try again.",
+            duration: 5000,
+            close: true,
+            gravity: "top",
+            position: "right",
+            className: `${styles.toastContainer} ${styles.toastError}`,
+          }).showToast();
+        }
+      }
     };
 
     // During browsing after upload

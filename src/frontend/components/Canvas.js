@@ -85,7 +85,7 @@ const useSocket = (boardId, onReceiveDrawing, onClearCanvas, onLoadDrawings, onD
         const token = await user.getIdToken();
 
         // Initialize the socket connection
-        socketRef.current = io('http://localhost:3001', {
+        socketRef.current = io('http://localhost:5000', {
           transports: ['websocket', 'polling'],
           auth: { token },
         });

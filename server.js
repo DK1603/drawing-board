@@ -11,6 +11,10 @@ const serviceAccount = require('./src/backend/config/firebase-adminsdk-drawing.j
 const app = express();
 const server = http.createServer(app);
 
+// Serve static files from the React app
+const path = require('path');
+
+
 // For copy desk function only!
 async function authenticateHTTP(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -41,10 +45,19 @@ app.use(express.urlencoded({ extended: true })); // Optional for URL-encoded dat
 app.use(cors());
 app.use(express.json()); // Parse JSON for express
 
+// static build for frontend
+app.use(express.static(path.join(__dirname, 'build')));
+
+// Catch-all route to serve React's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+
 // Socket.IO Setup with CORS
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "http://localhost:5000"],
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
@@ -815,7 +828,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
 });

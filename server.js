@@ -48,10 +48,7 @@ app.use(express.json()); // Parse JSON for express
 // static build for frontend
 app.use(express.static(path.join(__dirname, 'build')));
 
-// Catch-all route to serve React's index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
-});
+
 
 
 // Socket.IO Setup with CORS
@@ -826,6 +823,11 @@ app.post('/api/chat', async (req, res) => {
       error: error.response?.data || 'Internal Server Error',
     });
   }
+});
+
+// Catch-all route to serve React's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;

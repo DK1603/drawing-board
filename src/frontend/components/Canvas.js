@@ -635,6 +635,7 @@ const restrictPanning = (canvas, canvasBounds) => {
         // Make all objects not selectable
         fabricCanvasRef.current.forEachObject((obj) => {
           obj.selectable = false;
+          // disable hand events
           obj.evented = true;
         });
       }
@@ -779,7 +780,7 @@ useEffect(() => {
         } else if (obj.type === "image") {
           modifiedData.imageData = obj.imageData;
           modifiedData.type = "image";
-        } else if (obj.type === "rect") {
+        } else if (obj.type === "rectangle") {
           modifiedData.type = "rectangle";
           modifiedData.width = obj.width * obj.scaleX; // Actual width
           modifiedData.height = obj.height * obj.scaleY; // Actual height
@@ -1065,7 +1066,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
           if(target){
             const type = target.type;
             //console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
-            if(type !== "polyline" && type !== "path" && type !== "triangle" && type !== "circle" && type !== "rect" && type !== 'i-text' && type !== 'text'){
+            if(type !== "polyline" && type !== "path" && type !== "triangle" && type !== "circle" && type !== "rectangle" && type !== 'i-text' && type !== 'text'){
               console.log(type);  
               return;
             }

@@ -259,6 +259,8 @@ const restrictPanning = (canvas, canvasBounds) => {
   });
 
   canvas.on('mouse:move', (opt) => {
+    if(selectedToolRef.current !== 'hand') return;
+
     const e = opt.e;
     const transform = canvas.viewportTransform;
     if (!transform) return;
@@ -677,7 +679,7 @@ const restrictPanning = (canvas, canvasBounds) => {
       fabricCanvasRef.current.forEachObject((obj) => {
         obj.selectable = false;
         obj.evented = false;
-        obj.hoverCursor = 'grab';
+        obj.hoverCursor = 'default';
       });
     } 
 
@@ -759,11 +761,15 @@ useEffect(() => {
                 x: point.x * obj.scaleX + modifiedData.left,
                 y: point.y * obj.scaleY + modifiedData.top,
               }))
-            : [];
+          : [];
+          modifiedData.strokeWidth = obj.strokeWidth;
+          modifiedData.stroke = obj.stroke;
           modifiedData.type = "stroke";
         } else if (obj.type === "path") {
           modifiedData.points = obj.rawPoints || [];
           modifiedData.type = "stroke";
+          modifiedData.strokeWidth = obj.strokeWidth;
+          modifiedData.stroke = obj.stroke;
         } else if (obj.type === "i-text") {
           modifiedData.text = obj.text || "";
           modifiedData.fontSize = obj.fontSize || null;
@@ -862,9 +868,15 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
 
   if (tool === 'hand') {
     isPanningRef.current = true;
+    fabricCanvasRef.current.isDrawingMode = false;
     fabricCanvasRef.current.selection = false; // Disable selection
-    fabricCanvasRef.current.defaultCursor = 'grabbing';
-    opt.e.preventDefault();
+    fabricCanvasRef.current.defaultCursor = 'grab';
+    fabricCanvasRef.current.forEachObject((obj) => {
+      obj.selectable = false;
+      obj.evented = false;
+      obj.hoverCursor = 'default';
+    });
+    //opt.e.preventDefault();
   } else if (tool === 'brush') {
     // Start a new stroke
     collectedPoints = [{ x: pointer.x, y: pointer.y }];
@@ -891,7 +903,8 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
-      hasControls: true,
+      selectable: false,
+      evented: false,
     });
     console.log(shape.type); // Should output: "rect"
 
@@ -905,6 +918,8 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      selectable: false,
+      evented: false,
     };
   } else if (tool === 'circle') {
     shape = new fabric.Circle({
@@ -914,7 +929,8 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
-      hasControls: true,
+      selectable: false,
+      evented: false,
     });
     shapeData = {
       type: 'circle',
@@ -925,6 +941,8 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      selectable: false,
+      evented: false,
     };
   } else if (tool === 'triangle') {
     shape = new fabric.Triangle({
@@ -936,6 +954,8 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
       hasControls: true,
+      selectable: true,
+      evented: true,
     });
     shapeData = {
       type: 'triangle',
@@ -947,6 +967,9 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       fill: 'transparent',
       stroke: brushColorRef.current || 'black',
       strokeWidth: 2,
+      hasControls: true,
+      selectable: true,
+      evented: true,
     };
   }
 
@@ -1048,7 +1071,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
           if(target){
             const type = target.type;
             //console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
-            if(type !== "polyline" && type !== "path" ){
+            if(type !== "polyline" && type !== "path" && type !== "triangle" && type !== "circle" && type !== "rect"){
               console.log(type);  
               return;
             }

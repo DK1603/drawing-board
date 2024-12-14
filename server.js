@@ -6,7 +6,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
-const serviceAccount = require('./src/backend/config/firebase-adminsdk-drawing.json');
+const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK);
 
 const app = express();
 const server = http.createServer(app);

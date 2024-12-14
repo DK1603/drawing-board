@@ -895,20 +895,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       deletedStrokeIdsRef.current = new Set();
     }
   } else if (tool === 'rectangle') {
-    shape = new fabric.Rect({
-      left: pointer.x,
-      top: pointer.y,
-      width: 100,
-      height: 50,
-      fill: 'transparent',
-      stroke: brushColorRef.current || 'black',
-      strokeWidth: 2,
-      selectable: false,
-      evented: false,
-    });
-    console.log(shape.type); // Should output: "rect"
-
-    shapeData = {
+    const shapeData = {
       type: 'rectangle',
       strokeId: `${Date.now()}_${uuidv4()}`,
       left: pointer.x,
@@ -921,18 +908,21 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       selectable: false,
       evented: false,
     };
-  } else if (tool === 'circle') {
-    shape = new fabric.Circle({
-      left: pointer.x - 50,
-      top: pointer.y - 50,
-      radius: 50,
-      fill: 'transparent',
-      stroke: brushColorRef.current || 'black',
-      strokeWidth: 2,
-      selectable: false,
-      evented: false,
+  
+    const shape = new fabric.Rect({
+      ...shapeData,
     });
-    shapeData = {
+  
+    shape.strokeId = shapeData.strokeId; // Assign unique strokeId
+    fabricCanvasRef.current.add(shape); // Add shape to canvas
+    fabricCanvasRef.current.renderAll();
+  
+    // Broadcast the shape to other clients if needed
+    if (broadcastDrawingRef.current) {
+      broadcastDrawingRef.current(shapeData);
+    }
+  } else if (tool === 'circle') {
+    const shapeData = {
       type: 'circle',
       strokeId: `${Date.now()}_${uuidv4()}`,
       left: pointer.x - 50,
@@ -944,20 +934,21 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       selectable: false,
       evented: false,
     };
-  } else if (tool === 'triangle') {
-    shape = new fabric.Triangle({
-      left: pointer.x,
-      top: pointer.y,
-      width: 100,
-      height: 100,
-      fill: 'transparent',
-      stroke: brushColorRef.current || 'black',
-      strokeWidth: 2,
-      hasControls: true,
-      selectable: true,
-      evented: true,
+  
+    const shape = new fabric.Circle({
+      ...shapeData,
     });
-    shapeData = {
+  
+    shape.strokeId = shapeData.strokeId; // Assign unique strokeId
+    fabricCanvasRef.current.add(shape); // Add shape to canvas
+    fabricCanvasRef.current.renderAll();
+  
+    // Broadcast the shape to other clients if needed
+    if (broadcastDrawingRef.current) {
+      broadcastDrawingRef.current(shapeData);
+    }
+  } else if (tool === 'triangle') {
+    const shapeData = {
       type: 'triangle',
       strokeId: `${Date.now()}_${uuidv4()}`,
       left: pointer.x,
@@ -971,13 +962,15 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
       selectable: true,
       evented: true,
     };
-  }
-
-  if (shape) {
+  
+    const shape = new fabric.Triangle({
+      ...shapeData,
+    });
+  
     shape.strokeId = shapeData.strokeId; // Assign unique strokeId
     fabricCanvasRef.current.add(shape); // Add shape to canvas
     fabricCanvasRef.current.renderAll();
-
+  
     // Broadcast the shape to other clients if needed
     if (broadcastDrawingRef.current) {
       broadcastDrawingRef.current(shapeData);

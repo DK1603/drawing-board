@@ -57,7 +57,7 @@ app.get('*', (req, res) => {
 // Socket.IO Setup with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5000"],
+    origin: ["https://drawing-board-production.up.railway.app"],
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },

@@ -635,6 +635,7 @@ const restrictPanning = (canvas, canvasBounds) => {
         // Make all objects not selectable
         fabricCanvasRef.current.forEachObject((obj) => {
           obj.selectable = false;
+          obj.evented = true;
         });
       }
     } else if (tool === 'capture') {
@@ -1071,7 +1072,7 @@ fabricCanvasRef.current.on('mouse:down', (opt) => {
           if(target){
             const type = target.type;
             //console.log("FOUND THIS !!!", target.strokeId); //DEBUG TOOL
-            if(type !== "polyline" && type !== "path" && type !== "triangle" && type !== "circle" && type !== "rect"){
+            if(type !== "polyline" && type !== "path" && type !== "triangle" && type !== "circle" && type !== "rect" && type !== 'i-text' && type !== 'text'){
               console.log(type);  
               return;
             }

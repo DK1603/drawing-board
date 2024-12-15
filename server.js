@@ -6,7 +6,10 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
+
+//env variables for railway deployment
 const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK);
+const openaiApiKey = process.env.OPENAI_API_KEY;
 
 const app = express();
 const server = http.createServer(app);
@@ -809,7 +812,7 @@ app.post('/api/chat', async (req, res) => {
       payload,
       {
         headers: {
-          Authorization: `Bearer sk-svcacct-bHgFHgSSP2KfGILAQO69j28oL7V1Ov1xHwfxYxesUiYSzIiiJU8W7c7DviebWj-qerAT3BlbkFJO6PuYmGp87IikScE63If-_aMoabuxahfTFOxaxngRJlePLAlgyfkssuzeXWYmzTGRLAA`, // Replace with your actual API key or use environment variables
+          Authorization: `Bearer ${openaiApiKey}`,
           'Content-Type': 'application/json',
         },
       }

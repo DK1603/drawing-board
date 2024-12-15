@@ -70,7 +70,7 @@ const Chatbot = () => {
 
     console.log('Payload to backend:', payload); // Debug log
 
-    const response = await axios.post('http://localhost:3001/api/chat', payload);
+    const response = await axios.post('/api/chat', payload);
 
     console.log('Backend response:', response.data); // Debug log
 

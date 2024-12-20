@@ -1,6 +1,6 @@
 # 🎨 Collaborative Drawing Board
 
-![Project Banner](path/to/banner.gif)
+![Project Banner](/assets/pics/landing.png)
 
 ## Table of Contents
 
@@ -15,9 +15,8 @@
   - [Running the Application](#running-the-application)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
-- [License](#license)
 - [Contact](#contact)
-- [Acknowledgements](#acknowledgements)
+
 
 ---
 
@@ -49,9 +48,9 @@ In an increasingly digital world, collaboration tools have become essential for 
 
 - **Frontend**: React.js, Redux, HTML5, CSS3
 - **Backend**: Node.js, Express.js
-- **Database**: MongoDB
+- **Database**: Firestore Realtime DB/MongoDB
 - **Real-Time Communication**: Socket.io
-- **Authentication**: JWT (JSON Web Tokens)
+- **Authentication**: Firebase Authentication
 - **AI Integration**: OpenAI GPT for chatbot analysis
 
 ---
@@ -62,7 +61,7 @@ In an increasingly digital world, collaboration tools have become essential for 
 - **Redux**: State management to handle complex application states.
 - **Node.js & Express.js**: Server-side development and API handling.
 - **Socket.io**: Enabling real-time, bi-directional communication between clients and server.
-- **MongoDB**: NoSQL database for storing user data, boards, and session information.
+- **FirestoreDB**: EFficient NoSQL database for storing real time data.
 - **OpenAI GPT**: Integrating advanced AI for chatbot analysis features.
 
 ---
@@ -75,37 +74,37 @@ Here are some GIFs demonstrating the key features of the Collaborative Drawing B
 
 Users can create a new board or join an existing one seamlessly.
 
-![Dashboard](path/to/dashboard.gif)
+![Dashboard](/assets/gif/dashboard.gif)
 
 ### 2. Basic Drawing
 
 Experience smooth and responsive drawing capabilities.
 
-![Basic Drawing](path/to/basic-drawing.gif)
+![Basic Drawing](/assets/gif/brushTool.gif)
 
 ### 3. Text Insertion
 
 Add and edit text directly on the canvas.
 
-![Text Feature](path/to/text.gif)
+![Text Feature](/assets/gif/textTool.gif)
 
 ### 4. PDF Upload
 
 Upload PDF documents to integrate into your drawings.
 
-![PDF Upload](path/to/pdf-upload.gif)
+![PDF Upload](/assets/gif/pdfUpload.gif)
 
 ### 5. PDF Resize
 
 Easily resize uploaded PDFs to fit your needs.
 
-![PDF Resize](path/to/pdf-resize.gif)
+![PDF Resize](path/to/pdfResize.gif)
 
 ### 6. Chatbot Analysis
 
 Utilize AI to analyze specific areas of your canvas.
 
-![Chatbot Analysis](path/to/chatbot-analysis.gif)
+![Chatbot Analysis](/assets/gif/chatbot_analysis.gif)
 
 ---
 
@@ -118,3 +117,55 @@ Utilize AI to analyze specific areas of your canvas.
    ```bash
    git clone https://github.com/yourusername/collaborative-drawing-board.git
    cd collaborative-drawing-board
+   ```
+
+### Install Frontend Dependencies and Build Static React Components
+
+```bash
+
+cd ../frontend
+npm install
+npm run build
+```
+
+### Start the Backend Server
+
+```bash
+node server.js
+```
+
+The application will be available locally at http://localhost:3000 or http://localhost:5000 depending on your build.
+
+## Deployment
+- We have deployed our Collaborative Drawing Board globally, and it is accessible online:
+
+https://drawing-board-production.up.railway.app
+
+
+
+## Contributing
+We welcome contributions from the community! To contribute:
+
+- Fork the Repository
+- Create a Feature Branch
+```bash
+git checkout -b feature/YourFeature
+```
+
+- Commit Your Changes
+```bash
+git commit -m "Add YourFeature"
+```
+
+- Push to the Branch
+```bash
+git push origin feature/YourFeature
+```
+- Open a Pull Request and please ensure your code adheres to our Code of Conduct and Contribution Guidelines.
+
+
+
+## Contact
+For any questions or feedback, feel free to reach out:
+
+Email: dalerkim4@gmail.com

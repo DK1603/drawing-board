@@ -3,3 +3,5 @@ node_modules/
 *.eslintcache
 /build
 /src/backend/config/firebase-adminsdk-drawing.json
+.env
+api.env

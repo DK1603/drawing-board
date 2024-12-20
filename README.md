@@ -74,37 +74,37 @@ Here are some GIFs demonstrating the key features of the Collaborative Drawing B
 
 Users can create a new board or join an existing one seamlessly.
 
-![Dashboard](/assets/gif/dashboard.gif)
+![Dashboard](/assets/dashboard.gif)
 
 ### 2. Basic Drawing
 
 Experience smooth and responsive drawing capabilities.
 
-![Basic Drawing](/assets/gif/brushTool.gif)
+![Basic Drawing](/assets/brushTool.gif)
 
 ### 3. Text Insertion
 
 Add and edit text directly on the canvas.
 
-![Text Feature](/assets/gif/textTool.gif)
+![Text Feature](/assets/textTool.gif)
 
 ### 4. PDF Upload
 
 Upload PDF documents to integrate into your drawings.
 
-![PDF Upload](/assets/gif/pdfUpload.gif)
+![PDF Upload](/assets/pdfUpload.gif)
 
 ### 5. PDF Resize
 
 Easily resize uploaded PDFs to fit your needs.
 
-![PDF Resize](path/to/pdfResize.gif)
+![PDF Resize](assets/pdfResize.gif)
 
 ### 6. Chatbot Analysis
 
 Utilize AI to analyze specific areas of your canvas.
 
-![Chatbot Analysis](/assets/gif/chatbot_analysis.gif)
+![Chatbot Analysis](/assets/chatbot_analysis.gif)
 
 ---
 
@@ -136,10 +136,20 @@ node server.js
 
 The application will be available locally at http://localhost:3000 or http://localhost:5000 depending on your build.
 
+
+
+---
+
+
+
 ## Deployment
 - We have deployed our Collaborative Drawing Board globally, and it is accessible online:
 
 https://drawing-board-production.up.railway.app
+
+
+
+---
 
 
 
@@ -162,6 +172,9 @@ git commit -m "Add YourFeature"
 git push origin feature/YourFeature
 ```
 - Open a Pull Request and please ensure your code adheres to our Code of Conduct and Contribution Guidelines.
+
+
+---
 
 
 
